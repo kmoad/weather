@@ -1,7 +1,6 @@
 import convert from "https://cdn.jsdelivr.net/npm/convert@5";
 import {Chart, registerables} from 'https://cdn.jsdelivr.net/npm/chart.js/+esm';
-import chartjsPluginAnnotation from 'https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation/+esm'
-Chart.register(chartjsPluginAnnotation, ...registerables);
+Chart.register(...registerables);
 
 function detectMobile() {
   // 1) Client Hints
@@ -166,8 +165,8 @@ async function makeCharts(numHours) {
 	setTitle(`${numHours}h forecast for ${fcst.location.city}, ${fcst.location.state}`)
 	const tension = 0.4;
 	const pointRadius = 2.5;
+	const chartLabels = fcst.series.startTime.map(dt => makeLabel(dt))
 	const tempChartCanvas = document.getElementById('chart-temp');
-	const chartLabels = fcst.series.startTime.map(elem => makeLabel(elem))
 	new Chart(tempChartCanvas, {
 		type: 'line',
 		data: {
@@ -275,8 +274,8 @@ async function makeCharts(numHours) {
 		}
 	});
 
-	const windChartCanvas = document.getElementById('chart-wind');
 	const windPointerIcon = makeArrowIcon(30);
+	const windChartCanvas = document.getElementById('chart-wind');
 	new Chart(windChartCanvas, {
 		type: 'line',
 		data: {
@@ -322,4 +321,4 @@ async function makeCharts(numHours) {
 	});
 }
 
-export {getData, makeCharts};
+export {makeCharts};
