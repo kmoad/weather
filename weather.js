@@ -209,7 +209,6 @@ async function makeCharts(numHours) {
 					},
 				}
 			},
-			responsive: true,
 			maintainAspectRatio: false,
 			scales: {
 			y: {
@@ -264,7 +263,6 @@ async function makeCharts(numHours) {
 					},
 				}
 			},
-			responsive: true,
 			maintainAspectRatio: false,
 			scales: {
 			y: {
@@ -278,26 +276,23 @@ async function makeCharts(numHours) {
 	});
 
 	const windChartCanvas = document.getElementById('chart-wind');
-	const windPointerIcon = makeArrowIcon(30)
+	const windPointerIcon = makeArrowIcon(30);
 	new Chart(windChartCanvas, {
 		type: 'line',
 		data: {
 			labels: chartLabels,
 			datasets: [
 				{
-					label: 'Average',
+					label: 'Speed',
 					data: fcst.series.windSpeed,
-					fill: false,
 					borderColor: 'purple',
 					tension: tension,
-					// pointRadius: 10,
 					pointStyle: windPointerIcon,
 					pointRotation: fcst.series.windDirection.map(d => d-180),
 				},
 				{
 					label: 'Gust',
 					data: fcst.series.windGust,
-					fill: false,
 					borderColor: '#cf9df2',
 					tension: tension,
 					pointRadius: pointRadius,
@@ -308,13 +303,12 @@ async function makeCharts(numHours) {
 			plugins: {
 				title: {
 					display: true,
-					text: 'Wind Speed',
+					text: 'Wind',
 					font: {
 						size: titleSize,
 					},
 				}
 			},
-			responsive: true,
 			maintainAspectRatio: false,
 			scales: {
 			y: {
