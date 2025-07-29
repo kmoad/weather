@@ -1,5 +1,5 @@
-import {makeCharts} from './weather.js';
+import {makePlots} from './weather.js';
 
 const NUM_HOURS = 72;
 
-await makeCharts(NUM_HOURS);
+await makePlots(NUM_HOURS);

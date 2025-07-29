@@ -1,0 +1,94 @@
+{
+    "@context": [
+        "https://geojson.org/geojson-ld/geojson-context.jsonld",
+        {
+            "@version": "1.1",
+            "wx": "https://api.weather.gov/ontology#",
+            "s": "https://schema.org/",
+            "geo": "http://www.opengis.net/ont/geosparql#",
+            "unit": "http://codes.wmo.int/common/unit/",
+            "@vocab": "https://api.weather.gov/ontology#",
+            "geometry": {
+                "@id": "s:GeoCoordinates",
+                "@type": "geo:wktLiteral"
+            },
+            "city": "s:addressLocality",
+            "state": "s:addressRegion",
+            "distance": {
+                "@id": "s:Distance",
+                "@type": "s:QuantitativeValue"
+            },
+            "bearing": {
+                "@type": "s:QuantitativeValue"
+            },
+            "value": {
+                "@id": "s:value"
+            },
+            "unitCode": {
+                "@id": "s:unitCode",
+                "@type": "@id"
+            },
+            "forecastOffice": {
+                "@type": "@id"
+            },
+            "forecastGridData": {
+                "@type": "@id"
+            },
+            "publicZone": {
+                "@type": "@id"
+            },
+            "county": {
+                "@type": "@id"
+            }
+        }
+    ],
+    "id": "https://api.weather.gov/points/32.735,-117.2095",
+    "type": "Feature",
+    "geometry": {
+        "type": "Point",
+        "coordinates": [
+            -117.2095,
+            32.735
+        ]
+    },
+    "properties": {
+        "@id": "https://api.weather.gov/points/32.735,-117.2095",
+        "@type": "wx:Point",
+        "cwa": "SGX",
+        "forecastOffice": "https://api.weather.gov/offices/SGX",
+        "gridId": "SGX",
+        "gridX": 55,
+        "gridY": 15,
+        "forecast": "https://api.weather.gov/gridpoints/SGX/55,15/forecast",
+        "forecastHourly": "https://api.weather.gov/gridpoints/SGX/55,15/forecast/hourly",
+        "forecastGridData": "https://api.weather.gov/gridpoints/SGX/55,15",
+        "observationStations": "https://api.weather.gov/gridpoints/SGX/55,15/stations",
+        "relativeLocation": {
+            "type": "Feature",
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -117.156137,
+                    32.657202
+                ]
+            },
+            "properties": {
+                "city": "Coronado",
+                "state": "CA",
+                "distance": {
+                    "unitCode": "wmoUnit:m",
+                    "value": 9988.5199813235
+                },
+                "bearing": {
+                    "unitCode": "wmoUnit:degree_(angle)",
+                    "value": 330
+                }
+            }
+        },
+        "forecastZone": "https://api.weather.gov/zones/forecast/CAZ043",
+        "county": "https://api.weather.gov/zones/county/CAC073",
+        "fireWeatherZone": "https://api.weather.gov/zones/fire/CAZ243",
+        "timeZone": "America/Los_Angeles",
+        "radarStation": "KNKX"
+    }
+}

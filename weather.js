@@ -1,8 +1,7 @@
 import convert from "https://cdn.jsdelivr.net/npm/convert@5";
-import {Chart, registerables} from 'https://cdn.jsdelivr.net/npm/chart.js/+esm';
-Chart.register(...registerables);
+// import coronadoCA from './data.js';
 
-function detectMobile() {
+function detectMobile() { //AI
   // 1) Client Hints
   if (navigator.userAgentData && typeof navigator.userAgentData.mobile === 'boolean') {
     return navigator.userAgentData.mobile;
@@ -26,16 +25,11 @@ async function getPosition() {
   	});
 }
 
-const unitMap = {
-	'wmoUnit:degC': 'celsius',
-	'wmoUnit:km_h-1': 'kmph',
-}
-
 function setTitle(text) {
 	document.getElementById('title').textContent = text;
 }
 
-async function getData(numHours) {
+async function getData() {
 	setTitle('Getting location');
 	const location = await getPosition();
 	const lat = location.coords.latitude;
@@ -47,6 +41,8 @@ async function getData(numHours) {
 	setTitle('Fetching forecast');
 	const gridResponse = await fetch(NWSLocData.properties.forecastGridData);
 	const gridData = await gridResponse.json();
+	// const NWSLocData = coronadoCA.NWSLocData;
+	// const gridData = coronadoCA.gridData;
 	const gridProps = gridData.properties;
 	const out = {
 		location: {
@@ -55,12 +51,12 @@ async function getData(numHours) {
 		},
 		series: {}
 	};
-	const heatSeries = expandGridSeries(gridProps.heatIndex.values);
-	out.series.startTime = heatSeries.startTimes;
-	out.series.heatIndex = heatSeries.values.map(p => 
+	const tempSeries = expandGridSeries(gridProps.temperature.values);
+	out.series.startTime = tempSeries.startTimes;
+	out.series.temperature = tempSeries.values.map(p => 
 		p === null ? p : convert(p, 'celsius').to('fahrenheit')
 		);
-	out.series.temperature = expandGridSeries(gridProps.temperature.values).values.map(p => 
+	out.series.heatIndex = expandGridSeries(gridProps.heatIndex.values).values.map(p => 
 		p === null ? p : convert(p, 'celsius').to('fahrenheit')
 		);
 	out.series.dewpoint = expandGridSeries(gridProps.dewpoint.values).values.map(p => 
@@ -149,176 +145,207 @@ function makeArrowIcon(size = 20, color = 'purple') {
   return c;
 }
 
-async function makeCharts(numHours) {
-	let titleSize;
-	if (detectMobile()) {
-		Chart.defaults.font.size = 28;
-		titleSize = 40;
-	} else {
-		Chart.defaults.font.size = 16;
-		titleSize = 24;
-	}
+async function makePlots(numHours) {
 	const fcst = await getData();
-	for (let seriesName in fcst.series) {
-		fcst.series[seriesName] = fcst.series[seriesName].slice(0, numHours);
-	}
-	setTitle(`${numHours}h forecast for ${fcst.location.city}, ${fcst.location.state}`)
-	const tension = 0.4;
-	const pointRadius = 2.5;
-	const chartLabels = fcst.series.startTime.map(dt => makeLabel(dt))
-	const tempChartCanvas = document.getElementById('chart-temp');
-	new Chart(tempChartCanvas, {
-		type: 'line',
-		data: {
-			labels: chartLabels,
-			datasets: [
-				{
-					label: 'Temperature',
-					data: fcst.series.temperature,
-					fill: false,
-					borderColor: 'red',
-					tension: tension,
-					pointRadius: pointRadius,
+	setTitle(`${numHours}h forecast for ${fcst.location.city}, ${fcst.location.state}`);
+	Plotly.newPlot('plot-temp', 
+		[
+			{
+				name: 'Temperature',
+				x: fcst.series.startTime,
+				y: fcst.series.temperature,
+				mode: 'lines',
+				line: {
+					color: 'red',
+					shape: 'spline',
 				},
-				{
-					label: 'Heat Index',
-					data: fcst.series.heatIndex,
-					fill: false,
-					borderColor: 'orange',
-					tension: tension,
-					pointRadius: pointRadius,
-				},
-				{
-					label: 'Dewpoint',
-					data: fcst.series.dewpoint,
-					fill: false,
-					borderColor: 'green',
-					tension: tension,
-					pointRadius: pointRadius,
-				},
-			]
-		},
-		options: {
-			plugins: {
-				title: {
-					display: true,
-					text: 'Heat',
-					font: {
-						size: titleSize,
-					},
-				}
 			},
-			maintainAspectRatio: false,
-			scales: {
-			y: {
-				title: {
-					display: true,
-					text: 'Temperature [F]'
-					}
-				}
-			}
-		}
-	});
-	
-	const rainChartCanvas = document.getElementById('chart-rain');
-	new Chart(rainChartCanvas, {
-		type: 'line',
-		data: {
-			labels: chartLabels,
-			datasets: [
-				{
-					label: 'Humidity',
-					data: fcst.series.humidity,
-					fill: false,
-					borderColor: 'brown',
-					tension: tension,
-					pointRadius: pointRadius,
+			{
+				name: 'Heat Index',
+				x: fcst.series.startTime,
+				y: fcst.series.heatIndex,
+				mode: 'lines',
+				line: {
+					color: 'orange',
+					shape: 'spline',
 				},
-				{
-					label: 'Precipitation',
-					data: fcst.series.precipitation,
-					fill: false,
-					borderColor: 'blue',
-					tension: tension,
-					pointRadius: pointRadius,
-				},
-				{
-					label: 'Cloud Cover',
-					data: fcst.series.skyCover,
-					fill: false,
-					borderColor: 'grey',
-					tension: tension,
-					pointRadius: pointRadius,
-				},
-			]
-		},
-		options: {
-			plugins: {
-				title: {
-					display: true,
-					text: 'Water',
-					font: {
-						size: titleSize,
-					},
-				}
 			},
-			maintainAspectRatio: false,
-			scales: {
-			y: {
+			{
+				name: 'Dew Point',
+				x: fcst.series.startTime,
+				y: fcst.series.dewpoint,
+				mode: 'lines',
+				line: {
+					color: 'green',
+					shape: 'spline',
+				},
+			},
+		],
+		{
+			yaxis: {
 				title: {
-				display: true,
-				text: '%'
-				}
-			}
-			}
-		}
-	});
+					text: 'Temperature [F]',
+				},
+				fixedrange: true,
+			},
+			xaxis: {
+				range: [
+					fcst.series.startTime[0],
+					fcst.series.startTime[numHours - 1]  // assumes x-values are sorted
+					]
+			},
+			showlegend: true,
+			legend: {
+				y: 1,
+				yanchor: 'bottom',
+				orientation: 'h',
+			},
+			margin: {
+				t: 0,
+			},
+			dragmode: 'pan',
+		},
+		{
+			responsive: true,
+		},
+	);
+	Plotly.newPlot('plot-rain', 
+		[
+			{
+				name: 'Relative Humidity',
+				x: fcst.series.startTime,
+				y: fcst.series.humidity,
+				mode: 'lines',
+				line: {
+					color: 'brown',
+					shape: 'spline',
+				},
+			},
+			{
+				name: 'Precipitation Chance',
+				x: fcst.series.startTime,
+				y: fcst.series.precipitation,
+				mode: 'lines',
+				line: {
+					color: 'blue',
+					shape: 'spline',
+				},
+			},
+			{
+				name: 'Sky Cover',
+				x: fcst.series.startTime,
+				y: fcst.series.skyCover,
+				mode: 'lines',
+				line: {
+					color: 'gray',
+					shape: 'spline',
+				},
+			},
+		],
+		{
+			yaxis: {
+				title: {
+					text: '%',
+				},
+				fixedrange: true,
 
-	const windPointerIcon = makeArrowIcon(30);
-	const windChartCanvas = document.getElementById('chart-wind');
-	new Chart(windChartCanvas, {
-		type: 'line',
-		data: {
-			labels: chartLabels,
-			datasets: [
-				{
-					label: 'Speed',
-					data: fcst.series.windSpeed,
-					borderColor: 'purple',
-					tension: tension,
-					pointStyle: windPointerIcon,
-					pointRotation: fcst.series.windDirection.map(d => d-180),
-				},
-				{
-					label: 'Gust',
-					data: fcst.series.windGust,
-					borderColor: '#cf9df2',
-					tension: tension,
-					pointRadius: pointRadius,
-				},
-			]
-		},
-		options: {
-			plugins: {
-				title: {
-					display: true,
-					text: 'Wind',
-					font: {
-						size: titleSize,
-					},
-				}
 			},
-			maintainAspectRatio: false,
-			scales: {
-			y: {
+			xaxis: {
+				range: [
+					fcst.series.startTime[0],
+					fcst.series.startTime[numHours - 1]  // assumes x-values are sorted
+					]
+			},
+			showlegend: true,
+			legend: {
+				y: 1,
+				yanchor: 'bottom',
+				orientation: 'h',
+			},
+			margin: {
+				t: 0,
+			},
+			dragmode: 'pan',
+		},
+		{
+			responsive: true,
+		},
+	);
+	Plotly.newPlot('plot-wind', 
+		[
+			{
+				name: 'Wind Speed',
+				x: fcst.series.startTime,
+				y: fcst.series.windSpeed,
+				mode: 'lines',
+				line: {
+					color: 'brown',
+					shape: 'spline',
+				},
+			},
+		],
+		{
+			yaxis: {
 				title: {
-				display: true,
-				text: 'Speed [mph]'
-				}
-			}
-			}
-		}
+					text: 'Speed [mph]	',
+				},
+				fixedrange: true,
+			},
+			xaxis: {
+				range: [
+					fcst.series.startTime[0],
+					fcst.series.startTime[numHours - 1]  // assumes x-values are sorted
+					],
+			},
+			showlegend: true,
+			legend: {
+				y: 1,
+				yanchor: 'bottom',
+				orientation: 'h',
+			},
+			margin: {
+				t: 0,
+			},
+			dragmode: 'pan',
+		},
+		{
+			responsive: true,
+		},
+	);
+	syncPan();
+}
+
+function syncPan() { //AI
+	const plots = [
+		document.getElementById('plot-temp'),
+		document.getElementById('plot-rain'),
+		document.getElementById('plot-wind')
+	];
+	let isSyncing = false;
+	plots.forEach((sourcePlot, sourceIdx) => {
+  		sourcePlot.on('plotly_relayout', (relayoutData) => {
+			// only sync if we got a new x‑range
+			const start = relayoutData['xaxis.range[0]'];
+			const end   = relayoutData['xaxis.range[1]'];
+			if (start == null || end == null) return;
+
+			// prevent recursive firing
+			if (isSyncing) return;
+			isSyncing = true;
+
+			// apply to the others
+			plots.forEach((targetPlot, targetIdx) => {
+			if (targetIdx === sourceIdx) return;
+			Plotly.relayout(targetPlot, {
+				'xaxis.range[0]': start,
+				'xaxis.range[1]': end
+			});
+			});
+
+			// give the event loop a tick to clear before allowing new syncs
+			setTimeout(() => { isSyncing = false; }, 0);
+		});
 	});
 }
 
-export {makeCharts};
+export {makePlots};

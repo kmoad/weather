@@ -3,14 +3,15 @@
 	<title>Weather</title>
 	<link rel="icon" href="favicon.png">
 	<link rel="stylesheet" href="main.css">
+	<script src="https://cdn.plot.ly/plotly-3.0.1.min.js" charset="utf-8"></script>
 </head>
 <body>
 	<div id="main">
 		<div id="title"></div>
 		<div id="charts">
-			<div class="chart-container"><canvas id="chart-temp"></canvas></div>
-			<div class="chart-container"><canvas id="chart-rain"></canvas></div>
-			<div class="chart-container"><canvas id="chart-wind"></canvas></div>
+			<div id="plot-temp"></div>
+			<div id="plot-rain"></div>
+			<div id="plot-wind"></div>
 		</div>
 	</div>
 	<script type="module" src="main.js"></script>
