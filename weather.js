@@ -1,8 +1,18 @@
 import convert from "https://cdn.jsdelivr.net/npm/convert@5";
 import {Chart, registerables} from 'https://cdn.jsdelivr.net/npm/chart.js/+esm';
-Chart.register(...registerables);
+import chartjsPluginAnnotation from 'https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation/+esm'
+import chartjsPluginZoom from 'https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom/+esm'
 
-function detectMobile() {
+Chart.register(
+	chartjsPluginAnnotation,
+	chartjsPluginZoom,
+	...registerables
+);
+
+let charts = {};
+let isUpdating = false;
+
+function detectMobile() { //AI chatgpt o4-mini
   // 1) Client Hints
   if (navigator.userAgentData && typeof navigator.userAgentData.mobile === 'boolean') {
     return navigator.userAgentData.mobile;
@@ -109,10 +119,12 @@ function expandTimeRange(timeRange) {
 }
 
 function makeLabel(date) {
+	return date.toLocaleTimeString([], {day: 'numeric', hour: 'numeric'});
+
 	if (date.getHours() === 0) {
 		return date.toLocaleTimeString([], { hour: 'numeric', month: 'short', day: 'numeric'});
 	} else {
-		return date.toLocaleTimeString([], {hour: 'numeric'});
+		return date.toLocaleTimeString([], {day: 'numeric', hour: 'numeric'});
 	}
 }
 
@@ -149,6 +161,24 @@ function makeArrowIcon(size = 20, color = 'purple') {
   return c;
 }
 
+// Sync all charts to match the x-axis range of the source chart
+function syncCharts(sourceChartId, newXRange) { //AI Claude Sonnet 4
+	if (isUpdating) return; // Prevent infinite loops
+	
+	isUpdating = true;
+	
+	// Update all other charts
+	Object.keys(charts).forEach(chartId => {
+		if (chartId !== sourceChartId && charts[chartId]) {
+			charts[chartId].options.scales.x.min = newXRange.min;
+			charts[chartId].options.scales.x.max = newXRange.max;
+			charts[chartId].update('none'); // 'none' for no animation, faster sync
+		}
+	});
+	
+	isUpdating = false;
+}
+
 async function makeCharts(numHours) {
 	let titleSize;
 	if (detectMobile()) {
@@ -159,15 +189,12 @@ async function makeCharts(numHours) {
 		titleSize = 24;
 	}
 	const fcst = await getData();
-	for (let seriesName in fcst.series) {
-		fcst.series[seriesName] = fcst.series[seriesName].slice(0, numHours);
-	}
 	setTitle(`${numHours}h forecast for ${fcst.location.city}, ${fcst.location.state}`)
 	const tension = 0.4;
 	const pointRadius = 2.5;
 	const chartLabels = fcst.series.startTime.map(dt => makeLabel(dt))
 	const tempChartCanvas = document.getElementById('chart-temp');
-	new Chart(tempChartCanvas, {
+	charts[tempChartCanvas.id] = new Chart(tempChartCanvas, {
 		type: 'line',
 		data: {
 			labels: chartLabels,
@@ -206,22 +233,49 @@ async function makeCharts(numHours) {
 					font: {
 						size: titleSize,
 					},
-				}
+				},
+				zoom: {
+					zoom: {
+						wheel:{enabled:true},
+						pinch:{enabled:true},
+						mode:'x',
+						onZoom: context => {
+							syncCharts(tempChartCanvas.id, { 
+								min: context.chart.scales.x.min, 
+								max: context.chart.scales.x.max, 
+							});
+						},
+					},
+					pan: {
+						enabled: true,
+						mode: 'x',
+						onPan: context => {
+							syncCharts(tempChartCanvas.id, { 
+								min: context.chart.scales.x.min, 
+								max: context.chart.scales.x.max, 
+							});
+						},
+					},
+				},
 			},
 			maintainAspectRatio: false,
 			scales: {
-			y: {
-				title: {
-					display: true,
-					text: 'Temperature [F]'
+				x: {
+					min: chartLabels[0],
+					max: chartLabels[numHours-1],
+				},
+				y: {
+					title: {
+						display: true,
+						text: 'Temperature [F]'
+						}
 					}
 				}
-			}
 		}
 	});
 	
 	const rainChartCanvas = document.getElementById('chart-rain');
-	new Chart(rainChartCanvas, {
+	charts[rainChartCanvas.id] = new Chart(rainChartCanvas, {
 		type: 'line',
 		data: {
 			labels: chartLabels,
@@ -260,23 +314,52 @@ async function makeCharts(numHours) {
 					font: {
 						size: titleSize,
 					},
-				}
+				},
+				zoom: {
+					zoom: {
+						wheel:{enabled:true},
+						pinch:{enabled:true},
+						mode:'x',
+						onZoom: context => {
+							syncCharts(rainChartCanvas.id, { 
+								min: context.chart.scales.x.min, 
+								max: context.chart.scales.x.max, 
+							});
+						},
+					},
+					pan: {
+						enabled: true,
+						mode: 'x',
+						onPan: context => {
+							syncCharts(rainChartCanvas.id, { 
+								min: context.chart.scales.x.min, 
+								max: context.chart.scales.x.max, 
+							});
+						},
+					},
+				},
 			},
 			maintainAspectRatio: false,
 			scales: {
-			y: {
-				title: {
-				display: true,
-				text: '%'
-				}
-			}
+				x: {
+					min: chartLabels[0],
+					max: chartLabels[numHours-1],
+				},
+				y: {
+					title: {
+						display: true,
+						text: '%'
+					},
+					min: 0,
+					max: 100,
+				},
 			}
 		}
 	});
 
 	const windPointerIcon = makeArrowIcon(30);
 	const windChartCanvas = document.getElementById('chart-wind');
-	new Chart(windChartCanvas, {
+	charts[windChartCanvas.id] = new Chart(windChartCanvas, {
 		type: 'line',
 		data: {
 			labels: chartLabels,
@@ -289,13 +372,6 @@ async function makeCharts(numHours) {
 					pointStyle: windPointerIcon,
 					pointRotation: fcst.series.windDirection.map(d => d-180),
 				},
-				{
-					label: 'Gust',
-					data: fcst.series.windGust,
-					borderColor: '#cf9df2',
-					tension: tension,
-					pointRadius: pointRadius,
-				},
 			]
 		},
 		options: {
@@ -306,16 +382,44 @@ async function makeCharts(numHours) {
 					font: {
 						size: titleSize,
 					},
-				}
+				},
+				zoom: {
+					zoom: {
+						wheel:{enabled:true},
+						pinch:{enabled:true},
+						mode:'x',
+						onZoom: context => {
+							syncCharts(windChartCanvas.id, { 
+								min: context.chart.scales.x.min, 
+								max: context.chart.scales.x.max, 
+							});
+						},
+					},
+					pan: {
+						enabled: true,
+						mode: 'x',
+						onPan: context => {
+							syncCharts(windChartCanvas.id, { 
+								min: context.chart.scales.x.min, 
+								max: context.chart.scales.x.max, 
+							});
+						},
+					},
+				},
 			},
 			maintainAspectRatio: false,
 			scales: {
-			y: {
-				title: {
-				display: true,
-				text: 'Speed [mph]'
+				x: {
+					min: chartLabels[0],
+					max: chartLabels[numHours-1],
+				},
+				y: {
+					title: {
+						display: true,
+						text: 'Speed [mph]'
+					},
+					min: 0,
 				}
-			}
 			}
 		}
 	});
