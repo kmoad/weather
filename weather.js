@@ -119,13 +119,10 @@ function expandTimeRange(timeRange) {
 }
 
 function makeLabel(date) {
-	return date.toLocaleTimeString([], {day: 'numeric', hour: 'numeric'});
-
-	if (date.getHours() === 0) {
-		return date.toLocaleTimeString([], { hour: 'numeric', month: 'short', day: 'numeric'});
-	} else {
-		return date.toLocaleTimeString([], {day: 'numeric', hour: 'numeric'});
-	}
+	const dayLetters = ['U','M','T','W','R','F','S'];
+	const day = dayLetters[date.getDay()];
+	const hour = date.getHours().toString().padStart(2, '0');
+	return `${day}-${hour}`;
 }
 
 function makeArrowIcon(size = 20, color = 'purple') {
@@ -263,6 +260,9 @@ async function makeCharts(numHours) {
 				x: {
 					min: chartLabels[0],
 					max: chartLabels[numHours-1],
+					ticks: {
+						font: {family:'monospace'},
+					},
 				},
 				y: {
 					title: {
@@ -344,6 +344,9 @@ async function makeCharts(numHours) {
 				x: {
 					min: chartLabels[0],
 					max: chartLabels[numHours-1],
+					ticks: {
+						font: {family:'monospace'},
+					},
 				},
 				y: {
 					title: {
@@ -412,6 +415,9 @@ async function makeCharts(numHours) {
 				x: {
 					min: chartLabels[0],
 					max: chartLabels[numHours-1],
+					ticks: {
+						font: {family:'monospace'},
+					},
 				},
 				y: {
 					title: {
