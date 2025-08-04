@@ -233,8 +233,8 @@ async function makeCharts(numHours) {
 				},
 				zoom: {
 					zoom: {
-						wheel:{enabled:true},
-						pinch:{enabled:true},
+						wheel:{enabled:true,speed:0.05,},
+						pinch:{enabled:true,speed:0.05,},
 						mode:'x',
 						onZoom: context => {
 							syncCharts(tempChartCanvas.id, { 
@@ -317,8 +317,8 @@ async function makeCharts(numHours) {
 				},
 				zoom: {
 					zoom: {
-						wheel:{enabled:true},
-						pinch:{enabled:true},
+						wheel:{enabled:true,speed:0.05,},
+						pinch:{enabled:true,speed:0.05,},
 						mode:'x',
 						onZoom: context => {
 							syncCharts(rainChartCanvas.id, { 
@@ -388,8 +388,8 @@ async function makeCharts(numHours) {
 				},
 				zoom: {
 					zoom: {
-						wheel:{enabled:true},
-						pinch:{enabled:true},
+						wheel:{enabled:true,speed:0.05,},
+						pinch:{enabled:true,speed:0.05,},
 						mode:'x',
 						onZoom: context => {
 							syncCharts(windChartCanvas.id, { 
