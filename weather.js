@@ -125,6 +125,15 @@ function makeLabel(date) {
 	return `${day}-${hour}`;
 }
 
+function makeTick(value, index, ticks) {
+	const date = this.getLabelForValue(value);
+	if (value === 0) {
+		return makeLabel(date);
+	} else if (date.getHours() % 3 === 0 ) {
+		return makeLabel(date);
+	}
+}
+
 function makeArrowIcon(size = 20, color = 'purple') {
   const c = document.createElement('canvas');
   c.width = c.height = size;
@@ -186,15 +195,14 @@ async function makeCharts(numHours) {
 		titleSize = 24;
 	}
 	const fcst = await getData();
-	setTitle(`${numHours}h forecast for ${fcst.location.city}, ${fcst.location.state}`)
+	setTitle(`Location: ${fcst.location.city}, ${fcst.location.state}`)
 	const tension = 0.4;
 	const pointRadius = 2.5;
-	const chartLabels = fcst.series.startTime.map(dt => makeLabel(dt))
 	const tempChartCanvas = document.getElementById('chart-temp');
 	charts[tempChartCanvas.id] = new Chart(tempChartCanvas, {
 		type: 'line',
 		data: {
-			labels: chartLabels,
+			labels: fcst.series.startTime,
 			datasets: [
 				{
 					label: 'Temperature',
@@ -258,10 +266,11 @@ async function makeCharts(numHours) {
 			maintainAspectRatio: false,
 			scales: {
 				x: {
-					min: chartLabels[0],
-					max: chartLabels[numHours-1],
+					min: fcst.series.startTime[0],
+					max: fcst.series.startTime[numHours-1],
 					ticks: {
 						font: {family:'monospace'},
+						callback: makeTick,
 					},
 				},
 				y: {
@@ -278,7 +287,7 @@ async function makeCharts(numHours) {
 	charts[rainChartCanvas.id] = new Chart(rainChartCanvas, {
 		type: 'line',
 		data: {
-			labels: chartLabels,
+			labels: fcst.series.startTime,
 			datasets: [
 				{
 					label: 'Humidity',
@@ -342,10 +351,11 @@ async function makeCharts(numHours) {
 			maintainAspectRatio: false,
 			scales: {
 				x: {
-					min: chartLabels[0],
-					max: chartLabels[numHours-1],
+					min: fcst.series.startTime[0],
+					max: fcst.series.startTime[numHours-1],
 					ticks: {
 						font: {family:'monospace'},
+						callback: makeTick,
 					},
 				},
 				y: {
@@ -365,7 +375,7 @@ async function makeCharts(numHours) {
 	charts[windChartCanvas.id] = new Chart(windChartCanvas, {
 		type: 'line',
 		data: {
-			labels: chartLabels,
+			labels: fcst.series.startTime,
 			datasets: [
 				{
 					label: 'Speed',
@@ -413,10 +423,11 @@ async function makeCharts(numHours) {
 			maintainAspectRatio: false,
 			scales: {
 				x: {
-					min: chartLabels[0],
-					max: chartLabels[numHours-1],
+					min: fcst.series.startTime[0],
+					max: fcst.series.startTime[numHours-1],
 					ticks: {
 						font: {family:'monospace'},
+						callback: makeTick,
 					},
 				},
 				y: {
