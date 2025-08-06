@@ -65,12 +65,12 @@ async function getData(numHours) {
 		},
 		series: {}
 	};
-	const heatSeries = expandGridSeries(gridProps.heatIndex.values);
-	out.series.startTime = heatSeries.startTimes;
-	out.series.heatIndex = heatSeries.values.map(p => 
+	const tempSeries = expandGridSeries(gridProps.temperature.values);
+	out.series.startTime = tempSeries.startTimes;
+	out.series.temperature = tempSeries.values.map(p => 
 		p === null ? p : convert(p, 'celsius').to('fahrenheit')
 		);
-	out.series.temperature = expandGridSeries(gridProps.temperature.values).values.map(p => 
+	out.series.heatSeries = expandGridSeries(gridProps.heatIndex.values).values.map(p => 
 		p === null ? p : convert(p, 'celsius').to('fahrenheit')
 		);
 	out.series.dewpoint = expandGridSeries(gridProps.dewpoint.values).values.map(p => 
