@@ -45,7 +45,7 @@ function setTitle(text) {
 	document.getElementById('title').textContent = text;
 }
 
-async function getData(numHours) {
+async function getData() {
 	setTitle('Getting location');
 	const location = await getPosition();
 	const lat = location.coords.latitude;
@@ -70,7 +70,7 @@ async function getData(numHours) {
 	out.series.temperature = tempSeries.values.map(p => 
 		p === null ? p : convert(p, 'celsius').to('fahrenheit')
 		);
-	out.series.heatSeries = expandGridSeries(gridProps.heatIndex.values).values.map(p => 
+	out.series.heatIndex = expandGridSeries(gridProps.heatIndex.values).values.map(p => 
 		p === null ? p : convert(p, 'celsius').to('fahrenheit')
 		);
 	out.series.dewpoint = expandGridSeries(gridProps.dewpoint.values).values.map(p => 
