@@ -73,6 +73,9 @@ async function getData() {
 	out.series.heatIndex = expandGridSeries(gridProps.heatIndex.values).values.map(p => 
 		p === null ? p : convert(p, 'celsius').to('fahrenheit')
 		);
+	out.series.apparentTemperature = expandGridSeries(gridProps.apparentTemperature.values).values.map(p => 
+		p === null ? p : convert(p, 'celsius').to('fahrenheit')
+		);
 	out.series.dewpoint = expandGridSeries(gridProps.dewpoint.values).values.map(p => 
 		p === null ? p : convert(p, 'celsius').to('fahrenheit')
 		);
@@ -213,8 +216,8 @@ async function makeCharts(numHours) {
 					pointRadius: pointRadius,
 				},
 				{
-					label: 'Heat Index',
-					data: fcst.series.heatIndex,
+					label: 'Apparent',
+					data: fcst.series.apparentTemperature,
 					fill: false,
 					borderColor: 'orange',
 					tension: tension,
