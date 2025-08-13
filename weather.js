@@ -109,9 +109,8 @@ function expandGridSeries(gridProperty) {
 }
 
 function expandTimeRange(timeRange) {
-	const timeString = timeRange.split('/')[0];
-	const validRange = timeRange.split('/')[1];
-	const startDt =  new  Date(timeString);
+	const [timeString, validRange] = timeRange.split('/');
+	const startDt =  new Date(timeString);
 	const numHours = parseInt(validRange.slice(2,-1));
 	let rangeStarts = [];
 	for (let i=0; i<numHours; i++) {
