@@ -42,7 +42,7 @@ const unitMap = {
 }
 
 function setTitle(text) {
-	document.getElementById('title').textContent = text;
+	document.getElementById('title-text').textContent = text;
 }
 
 async function getData() {
@@ -442,6 +442,19 @@ async function makeCharts(numHours) {
 			}
 		}
 	});
+
+	const timeBtns = document.querySelectorAll('.time-select');
+	timeBtns.forEach(btn => {
+		btn.addEventListener('click', event => {
+			const hours = parseInt(btn.getAttribute('hours'));
+			for (const chart of Object.values(charts)) {
+				chart.options.scales.x.min = 0;
+				chart.options.scales.x.max = hours;
+				chart.update('none');
+			}
+			// charts[chartId].options.scales.x.min
+		})
+	})
 }
 
 export {makeCharts};

@@ -1,6 +1,17 @@
 #title {
+  display: flex;
+  align-items: center;
+  gap: 1ch;
+}
+
+#title-text {
 	font-size: 2em;
 	font-weight: 800;
+}
+
+.time-select {
+  font-size: 1.2em;
+  cursor: pointer;
 }
 
 #charts {
