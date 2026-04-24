@@ -2,6 +2,7 @@ import convert from "https://cdn.jsdelivr.net/npm/convert@5";
 import {Chart, registerables} from 'https://cdn.jsdelivr.net/npm/chart.js/+esm';
 import chartjsPluginAnnotation from 'https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation/+esm'
 import chartjsPluginZoom from 'https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom/+esm'
+import SunCalc from 'https://cdn.jsdelivr.net/npm/suncalc/+esm'
 
 Chart.register(
 	chartjsPluginAnnotation,
@@ -67,6 +68,8 @@ async function getData(lat, lon) {
 		location: {
 			city: NWSLocData.properties.relativeLocation.properties.city,
 			state: NWSLocData.properties.relativeLocation.properties.state,
+			lat: lat,
+			lon: lon,
 		},
 		series: {}
 	};
@@ -203,8 +206,9 @@ async function geocodeLocation(query) {
 }
 
 async function loadForecast(coords) {
-	for (const chart of Object.values(charts)) {
-		chart.destroy();
+	for (const id of ['chart-temp', 'chart-rain', 'chart-wind']) {
+		const existing = Chart.getChart(id);
+		if (existing) existing.destroy();
 	}
 	charts = {};
 	const fcst = await getData(coords.lat, coords.lon);
@@ -215,8 +219,55 @@ async function loadForecast(coords) {
 	buildCharts(fcst);
 }
 
+function computeNightRanges(startTimes, lat, lon) {
+	const ranges = [];
+	let nightStart = null;
+	for (let i = 0; i < startTimes.length; i++) {
+		const t = startTimes[i];
+		const times = SunCalc.getTimes(t, lat, lon);
+		const sunrise = times.sunrise;
+		const sunset = times.sunset;
+		const isNight = !sunrise || !sunset || isNaN(sunrise.getTime()) || isNaN(sunset.getTime())
+			? (t.getHours() < 6 || t.getHours() >= 18)
+			: (t < sunrise || t >= sunset);
+		if (isNight && nightStart === null) {
+			nightStart = i;
+		} else if (!isNight && nightStart !== null) {
+			ranges.push([nightStart, i]);
+			nightStart = null;
+		}
+	}
+	if (nightStart !== null) {
+		ranges.push([nightStart, startTimes.length]);
+	}
+	return ranges;
+}
+
+const NIGHT_SHADING_PLUGIN = {
+	id: 'nightShading',
+	beforeDatasetsDraw(chart, args, options) {
+		const ranges = options.ranges;
+		if (!ranges || !ranges.length) return;
+		const {ctx, chartArea, scales: {x}} = chart;
+		ctx.save();
+		ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+		for (const [s, e] of ranges) {
+			const xStart = x.getPixelForValue(s) - (x.getPixelForValue(1) - x.getPixelForValue(0)) / 2;
+			const xEnd = x.getPixelForValue(e - 1) + (x.getPixelForValue(1) - x.getPixelForValue(0)) / 2;
+			const clampedStart = Math.max(xStart, chartArea.left);
+			const clampedEnd = Math.min(xEnd, chartArea.right);
+			if (clampedEnd > clampedStart) {
+				ctx.fillRect(clampedStart, chartArea.top, clampedEnd - clampedStart, chartArea.bottom - chartArea.top);
+			}
+		}
+		ctx.restore();
+	},
+};
+Chart.register(NIGHT_SHADING_PLUGIN);
+
 function buildCharts(fcst) {
 	const numHours = numHoursStored;
+	const nightRanges = computeNightRanges(fcst.series.startTime, fcst.location.lat, fcst.location.lon);
 	const tension = 0.4;
 	const pointRadius = 2.5;
 	const tempChartCanvas = document.getElementById('chart-temp');
@@ -245,6 +296,7 @@ function buildCharts(fcst) {
 		},
 		options: {
 			plugins: {
+				nightShading: {ranges: nightRanges},
 				title: {
 					display: true,
 					text: 'Heat',
@@ -330,6 +382,7 @@ function buildCharts(fcst) {
 		},
 		options: {
 			plugins: {
+				nightShading: {ranges: nightRanges},
 				title: {
 					display: true,
 					text: 'Water',
@@ -402,6 +455,7 @@ function buildCharts(fcst) {
 		},
 		options: {
 			plugins: {
+				nightShading: {ranges: nightRanges},
 				title: {
 					display: true,
 					text: 'Wind',
