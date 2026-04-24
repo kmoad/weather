@@ -1,7 +1,21 @@
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+#main {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
 #title {
   display: flex;
   align-items: center;
   gap: 1ch;
+  padding: 0.3em 0.5em;
+  flex-shrink: 0;
 }
 
 #title-text {
@@ -9,14 +23,39 @@
 	font-weight: 800;
 }
 
+#status-text {
+  color: #c00;
+  font-weight: 600;
+}
+
+#status-text:empty {
+  display: none;
+}
+
 .time-select {
   font-size: 1.2em;
   cursor: pointer;
 }
 
+#location-input {
+  font-size: 1em;
+  padding: 0.2em 0.4em;
+}
+
+#location-go, #location-gps {
+  font-size: 1em;
+  cursor: pointer;
+}
+
 #charts {
+  flex: 1;
   display: grid;
-  grid-auto-rows: minmax(325px, 1fr);
-  height: 90vh;
-  overflow-y: auto;
+  grid-template-rows: repeat(3, 1fr);
+  min-height: 0;
+}
+
+.chart-container {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
 }

@@ -11,6 +11,9 @@ Chart.register(
 
 let charts = {};
 let isUpdating = false;
+let titleSize;
+let numHoursStored;
+const STORAGE_KEY = 'weather:lastCoords';
 
 function detectMobile() { //AI chatgpt o4-mini
   // 1) Client Hints
@@ -41,15 +44,17 @@ const unitMap = {
 	'wmoUnit:km_h-1': 'kmph',
 }
 
+let lastLocationTitle = '';
+
 function setTitle(text) {
 	document.getElementById('title-text').textContent = text;
 }
 
-async function getData() {
-	setTitle('Getting location');
-	const location = await getPosition();
-	const lat = location.coords.latitude;
-	const lon = location.coords.longitude;
+function setError(msg) {
+	document.getElementById('status-text').textContent = msg;
+}
+
+async function getData(lat, lon) {
 	setTitle('Finding NWS station');
 	const NWSLocURL = `https://api.weather.gov/points/${lat},${lon}`
 	const NWSLocResponse = await fetch(NWSLocURL);
@@ -187,17 +192,34 @@ function syncCharts(sourceChartId, newXRange) { //AI Claude Sonnet 4
 	isUpdating = false;
 }
 
-async function makeCharts(numHours) {
-	let titleSize;
-	if (detectMobile()) {
-		Chart.defaults.font.size = 28;
-		titleSize = 40;
-	} else {
-		Chart.defaults.font.size = 16;
-		titleSize = 24;
+async function geocodeLocation(query) {
+	const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1&countrycodes=us`;
+	const resp = await fetch(url);
+	const data = await resp.json();
+	if (!data.length) {
+		throw new Error(`No results for "${query}"`);
 	}
-	const fcst = await getData();
-	setTitle(`Location: ${fcst.location.city}, ${fcst.location.state}`)
+	return {
+		lat: parseFloat(data[0].lat),
+		lon: parseFloat(data[0].lon),
+	};
+}
+
+async function loadForecast(coords) {
+	for (const chart of Object.values(charts)) {
+		chart.destroy();
+	}
+	charts = {};
+	const fcst = await getData(coords.lat, coords.lon);
+	lastLocationTitle = `Location: ${fcst.location.city}, ${fcst.location.state}`;
+	setTitle(lastLocationTitle);
+	setError('');
+	localStorage.setItem(STORAGE_KEY, JSON.stringify(coords));
+	buildCharts(fcst);
+}
+
+function buildCharts(fcst) {
+	const numHours = numHoursStored;
 	const tension = 0.4;
 	const pointRadius = 2.5;
 	const tempChartCanvas = document.getElementById('chart-temp');
@@ -443,18 +465,75 @@ async function makeCharts(numHours) {
 		}
 	});
 
-	const timeBtns = document.querySelectorAll('.time-select');
-	timeBtns.forEach(btn => {
-		btn.addEventListener('click', event => {
+}
+
+async function makeCharts(numHours) {
+	numHoursStored = numHours;
+	if (detectMobile()) {
+		Chart.defaults.font.size = 28;
+		titleSize = 40;
+	} else {
+		Chart.defaults.font.size = 16;
+		titleSize = 24;
+	}
+
+	document.querySelectorAll('.time-select').forEach(btn => {
+		btn.addEventListener('click', () => {
 			const hours = parseInt(btn.getAttribute('hours'));
 			for (const chart of Object.values(charts)) {
 				chart.options.scales.x.min = 0;
 				chart.options.scales.x.max = hours;
 				chart.update('none');
 			}
-			// charts[chartId].options.scales.x.min
-		})
-	})
+		});
+	});
+
+	const locInput = document.getElementById('location-input');
+	const goBtn = document.getElementById('location-go');
+	const submitQuery = async () => {
+		const q = locInput.value.trim();
+		if (!q) return;
+		try {
+			setTitle(`Looking up "${q}"`);
+			const coords = await geocodeLocation(q);
+			await loadForecast(coords);
+			locInput.value = '';
+		} catch (err) {
+			setError(`Forecast lookup failed: ${err.message || 'unknown error'}`);
+			setTitle(lastLocationTitle || 'Enter a location to start');
+		}
+	};
+	goBtn.addEventListener('click', submitQuery);
+	locInput.addEventListener('keydown', e => {
+		if (e.key === 'Enter') submitQuery();
+	});
+	document.getElementById('location-gps').addEventListener('click', async () => {
+		try {
+			setTitle('Getting local location');
+			const pos = await getPosition();
+			await loadForecast({lat: pos.coords.latitude, lon: pos.coords.longitude});
+		} catch (err) {
+			setError('Forecast lookup failed: could not get local location');
+			setTitle(lastLocationTitle || 'Enter a location to start');
+		}
+	});
+
+	const saved = localStorage.getItem(STORAGE_KEY);
+	if (saved) {
+		try {
+			await loadForecast(JSON.parse(saved));
+			return;
+		} catch (err) {
+			setError(`Forecast lookup failed: ${err.message || 'saved location could not be loaded'}`);
+		}
+	}
+	try {
+		setTitle('Getting local location');
+		const pos = await getPosition();
+		await loadForecast({lat: pos.coords.latitude, lon: pos.coords.longitude});
+	} catch (err) {
+		setTitle('Enter a location to start');
+	}
 }
 
 export {makeCharts};
