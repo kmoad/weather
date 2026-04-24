@@ -81,9 +81,6 @@ async function getData(lat, lon) {
 	out.series.apparentTemperature = expandGridSeries(gridProps.apparentTemperature.values).values.map(p => 
 		p === null ? p : convert(p, 'celsius').to('fahrenheit')
 		);
-	out.series.dewpoint = expandGridSeries(gridProps.dewpoint.values).values.map(p => 
-		p === null ? p : convert(p, 'celsius').to('fahrenheit')
-		);
 	out.series.humidity = expandGridSeries(gridProps.relativeHumidity.values).values;
 	out.series.precipitation = expandGridSeries(gridProps.probabilityOfPrecipitation.values).values;
 	out.series.skyCover = expandGridSeries(gridProps.skyCover.values).values;
@@ -241,14 +238,6 @@ function buildCharts(fcst) {
 					data: fcst.series.apparentTemperature,
 					fill: false,
 					borderColor: 'orange',
-					tension: tension,
-					pointRadius: pointRadius,
-				},
-				{
-					label: 'Dewpoint',
-					data: fcst.series.dewpoint,
-					fill: false,
-					borderColor: 'green',
 					tension: tension,
 					pointRadius: pointRadius,
 				},
