@@ -212,7 +212,7 @@ async function loadForecast(coords) {
 	}
 	charts = {};
 	const fcst = await getData(coords.lat, coords.lon);
-	lastLocationTitle = `Location: ${fcst.location.city}, ${fcst.location.state}`;
+	lastLocationTitle = `${fcst.location.city}, ${fcst.location.state}`;
 	setTitle(lastLocationTitle);
 	setError('');
 	localStorage.setItem(STORAGE_KEY, JSON.stringify(coords));
@@ -543,7 +543,7 @@ async function makeCharts(numHours) {
 			locInput.value = '';
 		} catch (err) {
 			setError(`Forecast lookup failed: ${err.message || 'unknown error'}`);
-			setTitle(lastLocationTitle || 'Enter a location to start');
+			setTitle(lastLocationTitle || 'Enter a location');
 		}
 	};
 	goBtn.addEventListener('click', submitQuery);
@@ -552,12 +552,12 @@ async function makeCharts(numHours) {
 	});
 	document.getElementById('location-gps').addEventListener('click', async () => {
 		try {
-			setTitle('Getting local location');
+			setTitle('Getting location');
 			const pos = await getPosition();
 			await loadForecast({lat: pos.coords.latitude, lon: pos.coords.longitude});
 		} catch (err) {
-			setError('Forecast lookup failed: could not get local location');
-			setTitle(lastLocationTitle || 'Enter a location to start');
+			setError('Forecast lookup failed: could not get location');
+			setTitle(lastLocationTitle || 'Enter a location');
 		}
 	});
 
@@ -571,11 +571,11 @@ async function makeCharts(numHours) {
 		}
 	}
 	try {
-		setTitle('Getting local location');
+		setTitle('Getting location');
 		const pos = await getPosition();
 		await loadForecast({lat: pos.coords.latitude, lon: pos.coords.longitude});
 	} catch (err) {
-		setTitle('Enter a location to start');
+		setTitle('Enter a location');
 	}
 }
 
