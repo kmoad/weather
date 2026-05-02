@@ -298,7 +298,7 @@ function buildCharts(fcst) {
 			plugins: {
 				nightShading: {ranges: nightRanges},
 				title: {
-					display: true,
+					display: false,
 					text: 'Heat',
 					font: {
 						size: titleSize,
@@ -384,7 +384,7 @@ function buildCharts(fcst) {
 			plugins: {
 				nightShading: {ranges: nightRanges},
 				title: {
-					display: true,
+					display: false,
 					text: 'Water',
 					font: {
 						size: titleSize,
@@ -457,7 +457,7 @@ function buildCharts(fcst) {
 			plugins: {
 				nightShading: {ranges: nightRanges},
 				title: {
-					display: true,
+					display: false,
 					text: 'Wind',
 					font: {
 						size: titleSize,
