@@ -265,12 +265,52 @@ const NIGHT_SHADING_PLUGIN = {
 };
 Chart.register(NIGHT_SHADING_PLUGIN);
 
+function roundToMultiple(value, multiple, direction = 'up') {
+	// Round a number up or down to nearest multiple of an integer
+    // roundToMultiple(56.3, 2) === 58
+    // roundToMultiple(13.7, 5, 'down') === 10
+    if (typeof value !== 'number' || typeof multiple !== 'number') {
+        throw new TypeError('input and multiple must be numbers');
+    }
+    if (multiple === 0) {
+        throw new RangeError('multiple cannot be zero');
+    }
+
+    if (direction === 'up') {
+        return multiple * Math.ceil(value / multiple);
+    } else if (direction === 'down') {
+        return multiple * Math.floor(value / multiple);
+    } else {
+        throw new Error(`direction "${direction}" must be 'up' or 'down'`);
+    }
+}
+
 function buildCharts(fcst) {
 	const numHours = numHoursStored;
 	const nightRanges = computeNightRanges(fcst.series.startTime, fcst.location.lat, fcst.location.lon);
 	const tension = 0.4;
 	const pointRadius = 2.5;
 	const tempChartCanvas = document.getElementById('chart-temp');
+	const tempYRange = {
+		min: roundToMultiple(
+			Math.min(...fcst.series.temperature, ...fcst.series.apparentTemperature),
+			5,
+			'down'
+		),
+		max: roundToMultiple(
+			Math.max(...fcst.series.temperature, ...fcst.series.apparentTemperature),
+			5,
+			'up'
+		),
+	};
+	const windYRange = {
+		min: 0,
+		max: roundToMultiple(
+			Math.max(...fcst.series.windSpeed),
+			2,
+			'up'
+		),
+	};
 	charts[tempChartCanvas.id] = new Chart(tempChartCanvas, {
 		type: 'line',
 		data: {
@@ -341,10 +381,11 @@ function buildCharts(fcst) {
 				y: {
 					title: {
 						display: true,
-						text: 'Temperature [F]'
-						}
-					}
+						text: 'Temperature [F]',
+					},
+					...tempYRange,
 				}
+			}
 		}
 	});
 	
@@ -502,7 +543,7 @@ function buildCharts(fcst) {
 						display: true,
 						text: 'Speed [mph]'
 					},
-					min: 0,
+					...windYRange,
 				}
 			}
 		}
