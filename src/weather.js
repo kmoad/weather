@@ -14,7 +14,6 @@ let charts = {};
 let isUpdating = false;
 let titleSize;
 let numHoursStored;
-const STORAGE_KEY = 'weather:lastCoords';
 
 function detectMobile() { //AI chatgpt o4-mini
   // 1) Client Hints
@@ -215,7 +214,6 @@ async function loadForecast(coords) {
 	lastLocationTitle = `${fcst.location.city}, ${fcst.location.state}`;
 	setTitle(lastLocationTitle);
 	setError('');
-	localStorage.setItem(STORAGE_KEY, JSON.stringify(coords));
 	buildCharts(fcst);
 }
 
@@ -602,15 +600,6 @@ async function makeCharts(numHours) {
 		}
 	});
 
-	const saved = localStorage.getItem(STORAGE_KEY);
-	if (saved) {
-		try {
-			await loadForecast(JSON.parse(saved));
-			return;
-		} catch (err) {
-			setError(`Forecast lookup failed: ${err.message || 'saved location could not be loaded'}`);
-		}
-	}
 	try {
 		setTitle('Getting location');
 		const pos = await getPosition();
