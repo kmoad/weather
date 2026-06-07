@@ -93,6 +93,12 @@ async function getData(lat, lon) {
 		p === null ? p : convert(p, 'kilometer').to('mile')
 	);
 	out.series.windDirection = expandGridSeries(gridProps.windDirection.values).values;
+
+	// Truncate series to consistent length
+	Object.values(out.series).forEach(s => 
+		s.length = out.series.startTime.length
+	);
+
 	return out;
 }
 
