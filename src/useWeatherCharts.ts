@@ -40,9 +40,9 @@ export function useWeatherCharts(forecast: Forecast | null, numHours: number, ti
     );
     const shared = { forecast, numHours, titleSize, nightRanges };
     const configs = [
-      tempConfig({ ...shared, onRange: (r) => syncFrom(0, r) }),
-      rainConfig({ ...shared, onRange: (r) => syncFrom(1, r) }),
-      windConfig({ ...shared, onRange: (r) => syncFrom(2, r) }),
+      tempConfig({ ...shared, showXTicks: false, onRange: (r) => syncFrom(0, r) }),
+      rainConfig({ ...shared, showXTicks: false, onRange: (r) => syncFrom(1, r) }),
+      windConfig({ ...shared, showXTicks: true, onRange: (r) => syncFrom(2, r) }),
     ];
     const charts = canvases.map((canvas, i) => new Chart(canvas!, configs[i]));
     chartsRef.current = charts;

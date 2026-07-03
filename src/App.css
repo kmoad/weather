@@ -153,19 +153,66 @@
   flex: 1;
   display: grid;
   grid-template-rows: repeat(3, 1fr);
-  gap: 8px;
-  padding: 8px;
+  gap: 6px;
+  padding: 6px;
   min-height: 0;
 }
 
 .chart-container {
-  position: relative;
+  display: flex;
+  flex-direction: column;
   min-height: 0;
   overflow: hidden;
-  padding: 6px 10px;
+  padding: 4px 8px 2px;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 12px;
+}
+
+/* Compact HTML legend above each chart */
+.chart-legend {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 2px 3px;
+  flex-shrink: 0;
+}
+
+.legend-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-unit {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.chart-canvas {
+  position: relative;
+  flex: 1;
+  min-height: 0;
 }
 
 /* On wider screens, pull the time control up next to the title and let the

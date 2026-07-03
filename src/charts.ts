@@ -48,7 +48,6 @@ const NIGHT_SHADING_PLUGIN = {
 Chart.register(chartjsPluginAnnotation, chartjsPluginZoom, NIGHT_SHADING_PLUGIN, ...registerables);
 
 // Shared visual language for all three charts.
-const INK = '#0b1220';
 const MUTED = '#5b6b7f';
 const GRID = '#e7edf4';
 
@@ -61,15 +60,44 @@ const SERIES = {
   wind: '#7c3aed', // violet
 };
 
+/** Legend/unit descriptor for the compact HTML legend rendered above each chart. */
+export interface ChartMeta {
+  unit: string;
+  series: { label: string; color: string }[];
+}
+
+export const CHART_META: Record<'temp' | 'rain' | 'wind', ChartMeta> = {
+  temp: {
+    unit: '°F',
+    series: [
+      { label: 'Temp', color: SERIES.temperature },
+      { label: 'Apparent', color: SERIES.apparent },
+    ],
+  },
+  rain: {
+    unit: '%',
+    series: [
+      { label: 'Humidity', color: SERIES.humidity },
+      { label: 'Precip', color: SERIES.precipitation },
+      { label: 'Clouds', color: SERIES.cloud },
+    ],
+  },
+  wind: {
+    unit: 'mph',
+    series: [{ label: 'Wind', color: SERIES.wind }],
+  },
+};
+
 Chart.defaults.color = MUTED;
 Chart.defaults.borderColor = GRID;
 Chart.defaults.font.family = "system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
-Chart.defaults.plugins.legend.labels.color = INK;
-Chart.defaults.plugins.legend.labels.usePointStyle = true;
-Chart.defaults.plugins.legend.labels.boxWidth = 8;
-Chart.defaults.plugins.legend.labels.boxHeight = 8;
 
 export function detectMobile(): boolean {
+  // 0) Explicit override via ?mobile=1 / ?mobile=0 — lets us force either layout
+  //    for testing (e.g. Playwright, which reports a desktop client hint).
+  const override = new URLSearchParams(window.location.search).get('mobile');
+  if (override === '1' || override === 'true') return true;
+  if (override === '0' || override === 'false') return false;
   // 1) Client Hints
   const uaData = (navigator as Navigator & { userAgentData?: { mobile?: boolean } }).userAgentData;
   if (uaData && typeof uaData.mobile === 'boolean') {
@@ -165,6 +193,13 @@ function makeLabel(date: Date): string {
   return `${day}-${hour}`;
 }
 
+// Tooltip title: "Fri, 12:00 PM" instead of the full Date.toString().
+const STAMP_FMT = new Intl.DateTimeFormat(undefined, {
+  weekday: 'short',
+  hour: 'numeric',
+  minute: '2-digit',
+});
+
 /** x-axis tick formatter: label the first tick and every 3rd hour. */
 function makeTick(this: Scale, value: string | number): string | undefined {
   const date = this.getLabelForValue(value as number) as unknown as Date;
@@ -185,6 +220,8 @@ interface BaseOptions {
   titleSize: number;
   nightRanges: [number, number][];
   onRange: (range: ChartRange) => void;
+  // The three charts share one time axis; only the bottom one draws x labels.
+  showXTicks: boolean;
 }
 
 const TENSION = 0.4;
@@ -192,15 +229,26 @@ const POINT_RADIUS = 2.5;
 
 type LineConfig = ChartConfiguration<'line', (number | null)[], Date>;
 
-function baseOptions({ forecast, numHours, nightRanges, onRange }: BaseOptions): LineConfig['options'] {
+function baseOptions({ forecast, numHours, nightRanges, onRange, showXTicks }: BaseOptions): LineConfig['options'] {
   const { startTime } = forecast.series;
   const syncRange = (context: { chart: Chart }) =>
     onRange({ min: context.chart.scales.x.min, max: context.chart.scales.x.max });
   return {
     maintainAspectRatio: false,
+    // Tap/hover anywhere to read every series at that hour.
+    interaction: { mode: 'index', intersect: false },
     plugins: {
       nightShading: { ranges: nightRanges },
+      legend: { display: false }, // replaced by a compact HTML legend
       title: { display: false },
+      tooltip: {
+        callbacks: {
+          title: (items: { dataIndex: number }[]) => {
+            const d = startTime[items[0]?.dataIndex];
+            return d ? STAMP_FMT.format(d) : '';
+          },
+        },
+      },
       zoom: {
         zoom: {
           wheel: { enabled: true, speed: 0.05 },
@@ -219,6 +267,7 @@ function baseOptions({ forecast, numHours, nightRanges, onRange }: BaseOptions):
         grid: { color: GRID },
         border: { color: GRID },
         ticks: {
+          display: showXTicks,
           color: MUTED,
           font: { family: 'ui-monospace, SFMono-Regular, Menlo, monospace' },
           maxRotation: 0,
@@ -230,15 +279,21 @@ function baseOptions({ forecast, numHours, nightRanges, onRange }: BaseOptions):
   };
 }
 
-/** Shared y-axis styling so all three charts match. */
-function yScale(text: string, min: number, max: number) {
+/** Shared y-axis styling so all three charts match. Unit lives in the HTML legend. */
+function yScale(min: number, max: number, stepSize: number) {
+  // Pin the axis width so all three plots start at the same x and stay
+  // time-aligned, even though "110" is wider than "10".
+  const fontSize = typeof Chart.defaults.font.size === 'number' ? Chart.defaults.font.size : 12;
+  const axisWidth = fontSize * 2 + 14;
   return {
-    title: { display: true, text, color: MUTED, font: { weight: 600 } },
     min,
     max,
+    afterFit: (scale: { width: number }) => {
+      scale.width = axisWidth;
+    },
     grid: { color: GRID },
     border: { color: GRID },
-    ticks: { color: MUTED },
+    ticks: { color: MUTED, stepSize, autoSkip: false, maxTicksLimit: 20 },
   };
 }
 
@@ -268,7 +323,7 @@ export function tempConfig(opts: BaseOptions): LineConfig {
       ...base,
       scales: {
         ...base.scales,
-        y: yScale('Temperature [F]', min, max),
+        y: yScale(min, max, 5),
       },
     },
   };
@@ -291,7 +346,7 @@ export function rainConfig(opts: BaseOptions): LineConfig {
       ...base,
       scales: {
         ...base.scales,
-        y: yScale('%', 0, 100),
+        y: yScale(0, 100, 10),
       },
     },
   };
@@ -322,7 +377,7 @@ export function windConfig(opts: BaseOptions): LineConfig {
       ...base,
       scales: {
         ...base.scales,
-        y: yScale('Speed [mph]', 0, max),
+        y: yScale(0, max, 2),
       },
     },
   };

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Chart } from 'chart.js';
-import { detectMobile } from './charts';
+import { CHART_META, detectMobile, type ChartMeta } from './charts';
 import { useWeatherCharts } from './useWeatherCharts';
 import { geocodeLocation, getData, getPosition } from './weather';
 import type { Coords, Forecast } from './types';
@@ -10,8 +10,25 @@ const NUM_HOURS = 24;
 const TIME_OPTIONS = [24, 48, 72];
 
 const mobile = detectMobile();
-Chart.defaults.font.size = mobile ? 20 : 13;
+Chart.defaults.font.size = mobile ? 15 : 12;
 const TITLE_SIZE = mobile ? 40 : 24;
+
+/** Compact legend rendered above each chart: colored dots + labels, unit on the right. */
+function ChartLegend({ meta }: { meta: ChartMeta }) {
+  return (
+    <div className="chart-legend">
+      <div className="legend-items">
+        {meta.series.map((s) => (
+          <span className="legend-item" key={s.label}>
+            <i className="legend-dot" style={{ background: s.color }} />
+            {s.label}
+          </span>
+        ))}
+      </div>
+      <span className="legend-unit">{meta.unit}</span>
+    </div>
+  );
+}
 
 export default function App() {
   const [forecast, setForecast] = useState<Forecast | null>(null);
@@ -121,13 +138,22 @@ export default function App() {
       </header>
       <div id="charts">
         <div className="chart-container">
-          <canvas ref={tempRef} />
+          <ChartLegend meta={CHART_META.temp} />
+          <div className="chart-canvas">
+            <canvas ref={tempRef} />
+          </div>
         </div>
         <div className="chart-container">
-          <canvas ref={rainRef} />
+          <ChartLegend meta={CHART_META.rain} />
+          <div className="chart-canvas">
+            <canvas ref={rainRef} />
+          </div>
         </div>
         <div className="chart-container">
-          <canvas ref={windRef} />
+          <ChartLegend meta={CHART_META.wind} />
+          <div className="chart-canvas">
+            <canvas ref={windRef} />
+          </div>
         </div>
       </div>
     </div>
