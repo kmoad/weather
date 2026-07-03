@@ -35,13 +35,15 @@ export default function App() {
   const [title, setTitle] = useState('Getting location');
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
-  const [range, setRange] = useState(NUM_HOURS);
+  // `null` means the visible window no longer matches any preset (user zoomed/panned).
+  const [range, setRange] = useState<number | null>(NUM_HOURS);
   const lastLocationTitle = useRef('');
 
   const { tempRef, rainRef, windRef, setTimeRange } = useWeatherCharts(
     forecast,
     NUM_HOURS,
     TITLE_SIZE,
+    () => setRange(null),
   );
 
   const loadForecast = async (coords: Coords) => {

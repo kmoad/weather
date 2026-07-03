@@ -45,7 +45,44 @@ const NIGHT_SHADING_PLUGIN = {
   },
 };
 
-Chart.register(chartjsPluginAnnotation, chartjsPluginZoom, NIGHT_SHADING_PLUGIN, ...registerables);
+const NOON_LINE_COLOR = 'rgba(245, 158, 11, 0.55)'; // amber — sun overhead
+const MIDNIGHT_LINE_COLOR = 'rgba(49, 46, 129, 0.35)'; // subtle indigo — dead of night
+
+const NOON_MIDNIGHT_PLUGIN = {
+  id: 'noonMidnightLines',
+  beforeDatasetsDraw(chart: Chart) {
+    const {
+      ctx,
+      chartArea,
+      scales: { x },
+    } = chart;
+    const labels = chart.data.labels as Date[] | undefined;
+    if (!labels || !labels.length) return;
+    ctx.save();
+    for (let i = 0; i < labels.length; i++) {
+      const hour = labels[i].getHours();
+      if (hour !== 0 && hour !== 12) continue;
+      const isNoon = hour === 12;
+      ctx.lineWidth = isNoon ? 1.25 : 1;
+      const px = Math.round(x.getPixelForValue(i)) + 0.5;
+      if (px < chartArea.left || px > chartArea.right) continue;
+      ctx.strokeStyle = isNoon ? NOON_LINE_COLOR : MIDNIGHT_LINE_COLOR;
+      ctx.beginPath();
+      ctx.moveTo(px, chartArea.top);
+      ctx.lineTo(px, chartArea.bottom);
+      ctx.stroke();
+    }
+    ctx.restore();
+  },
+};
+
+Chart.register(
+  chartjsPluginAnnotation,
+  chartjsPluginZoom,
+  NIGHT_SHADING_PLUGIN,
+  NOON_MIDNIGHT_PLUGIN,
+  ...registerables,
+);
 
 // Shared visual language for all three charts.
 const MUTED = '#5b6b7f';
@@ -219,7 +256,8 @@ interface BaseOptions {
   numHours: number;
   titleSize: number;
   nightRanges: [number, number][];
-  onRange: (range: ChartRange) => void;
+  // `isZoom` distinguishes a zoom (span changed) from a pan (span unchanged).
+  onRange: (range: ChartRange, isZoom: boolean) => void;
   // The three charts share one time axis; only the bottom one draws x labels.
   showXTicks: boolean;
 }
@@ -231,8 +269,8 @@ type LineConfig = ChartConfiguration<'line', (number | null)[], Date>;
 
 function baseOptions({ forecast, numHours, nightRanges, onRange, showXTicks }: BaseOptions): LineConfig['options'] {
   const { startTime } = forecast.series;
-  const syncRange = (context: { chart: Chart }) =>
-    onRange({ min: context.chart.scales.x.min, max: context.chart.scales.x.max });
+  const emitRange = (isZoom: boolean) => (context: { chart: Chart }) =>
+    onRange({ min: context.chart.scales.x.min, max: context.chart.scales.x.max }, isZoom);
   return {
     maintainAspectRatio: false,
     // Tap/hover anywhere to read every series at that hour.
@@ -254,9 +292,9 @@ function baseOptions({ forecast, numHours, nightRanges, onRange, showXTicks }: B
           wheel: { enabled: true, speed: 0.05 },
           pinch: { enabled: true },
           mode: 'x',
-          onZoom: syncRange,
+          onZoom: emitRange(true),
         },
-        pan: { enabled: true, mode: 'x', onPan: syncRange },
+        pan: { enabled: true, mode: 'x', onPan: emitRange(false) },
       },
     },
     scales: {
