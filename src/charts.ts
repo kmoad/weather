@@ -230,13 +230,6 @@ function makeLabel(date: Date): string {
   return `${day}-${hour}`;
 }
 
-// Tooltip title: "Fri, 12:00 PM" instead of the full Date.toString().
-const STAMP_FMT = new Intl.DateTimeFormat(undefined, {
-  weekday: 'short',
-  hour: 'numeric',
-  minute: '2-digit',
-});
-
 /** x-axis tick formatter: label the first tick and every 3rd hour. */
 function makeTick(this: Scale, value: string | number): string | undefined {
   const date = this.getLabelForValue(value as number) as unknown as Date;
@@ -279,14 +272,7 @@ function baseOptions({ forecast, numHours, nightRanges, onRange, showXTicks }: B
       nightShading: { ranges: nightRanges },
       legend: { display: false }, // replaced by a compact HTML legend
       title: { display: false },
-      tooltip: {
-        callbacks: {
-          title: (items: { dataIndex: number }[]) => {
-            const d = startTime[items[0]?.dataIndex];
-            return d ? STAMP_FMT.format(d) : '';
-          },
-        },
-      },
+      tooltip: {enabled: false,},
       zoom: {
         zoom: {
           wheel: { enabled: true, speed: 0.05 },
