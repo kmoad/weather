@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Chart } from 'chart.js';
+import 'uplot/dist/uPlot.min.css';
 import { detectMobile } from './charts';
 import { useWeatherCharts } from './useWeatherCharts';
 import { geocodeLocation, getData, getPosition } from './weather';
@@ -10,7 +10,7 @@ const NUM_HOURS = 24;
 const TIME_OPTIONS = [24, 48, 72];
 
 const mobile = detectMobile();
-Chart.defaults.font.size = mobile ? 28 : 16;
+const FONT_SIZE = mobile ? 28 : 16;
 const TITLE_SIZE = mobile ? 40 : 24;
 
 export default function App() {
@@ -24,6 +24,7 @@ export default function App() {
     forecast,
     NUM_HOURS,
     TITLE_SIZE,
+    FONT_SIZE,
   );
 
   const loadForecast = async (coords: Coords) => {
@@ -104,15 +105,9 @@ export default function App() {
         ))}
       </div>
       <div id="charts">
-        <div className="chart-container">
-          <canvas ref={tempRef} />
-        </div>
-        <div className="chart-container">
-          <canvas ref={rainRef} />
-        </div>
-        <div className="chart-container">
-          <canvas ref={windRef} />
-        </div>
+        <div className="chart-container" ref={tempRef} />
+        <div className="chart-container" ref={rainRef} />
+        <div className="chart-container" ref={windRef} />
       </div>
     </div>
   );

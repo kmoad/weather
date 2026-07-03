@@ -1,51 +1,6 @@
-import {
-  Chart,
-  registerables,
-  type ChartConfiguration,
-  type ChartType,
-  type Scale,
-} from 'chart.js';
-import chartjsPluginAnnotation from 'chartjs-plugin-annotation';
-import chartjsPluginZoom from 'chartjs-plugin-zoom';
+import uPlot from 'uplot';
 import * as SunCalc from 'suncalc';
 import type { Forecast } from './types';
-
-// Let charts read per-instance night-shading ranges off their plugin options.
-declare module 'chart.js' {
-  interface PluginOptionsByType<TType extends ChartType> {
-    nightShading?: { ranges?: [number, number][] };
-    // Keep TType referenced so the augmentation stays generic-compatible.
-    _nightShadingMarker?: TType;
-  }
-}
-
-const NIGHT_SHADING_PLUGIN = {
-  id: 'nightShading',
-  beforeDatasetsDraw(chart: Chart, _args: unknown, options: { ranges?: [number, number][] }) {
-    const ranges = options.ranges;
-    if (!ranges || !ranges.length) return;
-    const {
-      ctx,
-      chartArea,
-      scales: { x },
-    } = chart;
-    ctx.save();
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
-    const halfStep = (x.getPixelForValue(1) - x.getPixelForValue(0)) / 2;
-    for (const [s, e] of ranges) {
-      const xStart = x.getPixelForValue(s) - halfStep;
-      const xEnd = x.getPixelForValue(e - 1) + halfStep;
-      const clampedStart = Math.max(xStart, chartArea.left);
-      const clampedEnd = Math.min(xEnd, chartArea.right);
-      if (clampedEnd > clampedStart) {
-        ctx.fillRect(clampedStart, chartArea.top, clampedEnd - clampedStart, chartArea.bottom - chartArea.top);
-      }
-    }
-    ctx.restore();
-  },
-};
-
-Chart.register(chartjsPluginAnnotation, chartjsPluginZoom, NIGHT_SHADING_PLUGIN, ...registerables);
 
 export function detectMobile(): boolean {
   // 1) Client Hints
@@ -143,69 +98,209 @@ function makeLabel(date: Date): string {
   return `${day}-${hour}`;
 }
 
-/** x-axis tick formatter: label the first tick and every 3rd hour. */
-function makeTick(this: Scale, value: string | number): string | undefined {
-  const date = this.getLabelForValue(value as number) as unknown as Date;
-  if (value === 0 || date.getHours() % 3 === 0) {
-    return makeLabel(date);
-  }
-  return undefined;
+/** Convert the forecast's `Date[]` start times into uPlot's x axis (unix seconds). */
+export function toUnixSeconds(startTimes: Date[]): number[] {
+  return startTimes.map((d) => Math.round(d.getTime() / 1000));
 }
 
-export interface ChartRange {
-  min: number;
-  max: number;
-}
+// ---- Plugins ---------------------------------------------------------------
 
-interface BaseOptions {
-  forecast: Forecast;
-  numHours: number;
-  titleSize: number;
-  nightRanges: [number, number][];
-  onRange: (range: ChartRange) => void;
-}
-
-const TENSION = 0.4;
-const POINT_RADIUS = 2.5;
-
-type LineConfig = ChartConfiguration<'line', (number | null)[], Date>;
-
-function baseOptions({ forecast, numHours, nightRanges, onRange }: BaseOptions): LineConfig['options'] {
-  const { startTime } = forecast.series;
-  const syncRange = (context: { chart: Chart }) =>
-    onRange({ min: context.chart.scales.x.min, max: context.chart.scales.x.max });
+/** Grey translucent background bands over nighttime hours (index ranges into xs). */
+function nightShadingPlugin(xs: number[], ranges: [number, number][]): uPlot.Plugin {
+  const halfStep = xs.length > 1 ? (xs[1] - xs[0]) / 2 : 1800;
   return {
-    maintainAspectRatio: false,
-    plugins: {
-      nightShading: { ranges: nightRanges },
-      title: { display: false },
-      zoom: {
-        zoom: {
-          wheel: { enabled: true, speed: 0.05 },
-          pinch: { enabled: true },
-          mode: 'x',
-          onZoom: syncRange,
-        },
-        pan: { enabled: true, mode: 'x', onPan: syncRange },
-      },
-    },
-    scales: {
-      x: {
-        // Faithful to the original: category labels are Date objects.
-        min: startTime[0] as unknown as number,
-        max: startTime[numHours - 1] as unknown as number,
-        ticks: {
-          font: { family: 'monospace' },
-          callback: makeTick,
-        },
+    hooks: {
+      drawClear: (u: uPlot) => {
+        if (!ranges.length) return;
+        const { ctx } = u;
+        const { top, height } = u.bbox;
+        const clipLeft = u.bbox.left;
+        const clipRight = u.bbox.left + u.bbox.width;
+        ctx.save();
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+        for (const [s, e] of ranges) {
+          const xStart = u.valToPos(xs[s] - halfStep, 'x', true);
+          const xEnd = u.valToPos(xs[e - 1] + halfStep, 'x', true);
+          const clampedStart = Math.max(xStart, clipLeft);
+          const clampedEnd = Math.min(xEnd, clipRight);
+          if (clampedEnd > clampedStart) {
+            ctx.fillRect(clampedStart, top, clampedEnd - clampedStart, height);
+          }
+        }
+        ctx.restore();
       },
     },
   };
 }
 
-export function tempConfig(opts: BaseOptions): LineConfig {
-  const { series } = opts.forecast;
-  const base = baseOptions(opts)!;
+/** Per-point arrow markers on the wind series, rotated by wind direction. */
+function windArrowPlugin(
+  xs: number[],
+  speed: (number | null)[],
+  direction: (number | null)[],
+): uPlot.Plugin {
+  const icon = makeArrowIcon(30);
+  return {
+    hooks: {
+      draw: (u: uPlot) => {
+        const { ctx } = u;
+        const dpr = uPlot.pxRatio;
+        const sizeDev = 30 * dpr;
+        const half = sizeDev / 2;
+        const clipLeft = u.bbox.left;
+        const clipRight = u.bbox.left + u.bbox.width;
+        ctx.save();
+        for (let i = 0; i < xs.length; i++) {
+          const v = speed[i];
+          if (v == null) continue;
+          const x = u.valToPos(xs[i], 'x', true);
+          if (x < clipLeft || x > clipRight) continue;
+          const y = u.valToPos(v, 'y', true);
+          const rot = ((direction[i] ?? 0) - 180) * (Math.PI / 180);
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.rotate(rot);
+          ctx.drawImage(icon, -half, -half, sizeDev, sizeDev);
+          ctx.restore();
+        }
+        ctx.restore();
+      },
+    },
+  };
+}
+
+/** Wheel zoom on the x scale, mirrored to all synced charts via `onXScale`. */
+function wheelZoomPlugin(onXScale: (min: number, max: number) => void): uPlot.Plugin {
+  const factor = 0.9;
+  return {
+    hooks: {
+      ready: (u: uPlot) => {
+        u.over.addEventListener(
+          'wheel',
+          (e: WheelEvent) => {
+            e.preventDefault();
+            const { min, max } = u.scales.x;
+            if (min == null || max == null) return;
+            const rect = u.over.getBoundingClientRect();
+            const cursorX = e.clientX - rect.left;
+            const xVal = u.posToVal(cursorX, 'x');
+            const zoom = e.deltaY < 0 ? factor : 1 / factor;
+            const nMin = xVal - (xVal - min) * zoom;
+            const nMax = xVal + (max - xVal) * zoom;
+            onXScale(nMin, nMax);
+          },
+          { passive: false },
+        );
+      },
+    },
+  };
+}
+
+// ---- Options builders ------------------------------------------------------
+
+export interface ChartInputs {
+  forecast: Forecast;
+  xs: number[];
+  numHours: number;
+  titleSize: number;
+  fontSize: number;
+  nightRanges: [number, number][];
+  syncKey: string;
+  /** Mirror an x-range change onto every synced chart. */
+  onXScale: (min: number, max: number) => void;
+}
+
+interface SeriesDef {
+  label: string;
+  color: string;
+  data: (number | null)[];
+}
+
+const SPLINE = uPlot.paths.spline!();
+
+function baseOptions(
+  inputs: ChartInputs,
+  yLabel: string,
+  yRange: [number, number],
+  seriesDefs: SeriesDef[],
+  extraPlugins: uPlot.Plugin[] = [],
+  showPoints = true,
+): { opts: uPlot.Options; data: uPlot.AlignedData } {
+  const { xs, titleSize, fontSize, nightRanges, syncKey, onXScale } = inputs;
+  const tickFont = `${fontSize}px monospace`;
+  const labelFont = `700 ${titleSize}px sans-serif`;
+
+  const opts: uPlot.Options = {
+    width: 100,
+    height: 100,
+    // Mount without the default legend; keep the plot area clean like Chart.js.
+    legend: { show: false },
+    cursor: {
+      sync: { key: syncKey, setSeries: false },
+      drag: { x: true, y: false },
+    },
+    scales: {
+      x: {
+        time: true,
+        // Pass requested limits through so zoom/pan/buttons drive the window.
+        range: (_u, min, max) => [min, max],
+      },
+      y: {
+        range: () => yRange,
+      },
+    },
+    axes: [
+      {
+        scale: 'x',
+        font: tickFont,
+        // Tick at the first sample and every 3rd hour.
+        splits: () =>
+          xs.filter((x, i) => i === 0 || new Date(x * 1000).getHours() % 3 === 0),
+        values: (_u, splits) => splits.map((s) => makeLabel(new Date(s * 1000))),
+      },
+      {
+        scale: 'y',
+        font: tickFont,
+        label: yLabel,
+        labelFont,
+        labelSize: titleSize + 12,
+      },
+    ],
+    series: [
+      {},
+      ...seriesDefs.map(
+        (d): uPlot.Series => ({
+          label: d.label,
+          stroke: d.color,
+          width: 2,
+          paths: SPLINE,
+          points: { show: showPoints, size: 5, stroke: d.color, fill: d.color, width: 0 },
+        }),
+      ),
+    ],
+    plugins: [
+      nightShadingPlugin(xs, nightRanges),
+      wheelZoomPlugin(onXScale),
+      ...extraPlugins,
+    ],
+    hooks: {
+      setScale: [
+        (u: uPlot, key: string) => {
+          if (key !== 'x') return;
+          const { min, max } = u.scales.x;
+          if (min == null || max == null) return;
+          onXScale(min, max);
+        },
+      ],
+    },
+  };
+
+  const data: uPlot.AlignedData = [xs, ...seriesDefs.map((d) => d.data)];
+  return { opts, data };
+}
+
+export function tempOptions(inputs: ChartInputs) {
+  const { series } = inputs.forecast;
   const min = roundToMultiple(
     Math.min(...(series.temperature as number[]), ...(series.apparentTemperature as number[])),
     5,
@@ -216,74 +311,30 @@ export function tempConfig(opts: BaseOptions): LineConfig {
     5,
     'up',
   );
-  return {
-    type: 'line',
-    data: {
-      labels: series.startTime,
-      datasets: [
-        { label: 'Temperature', data: series.temperature, fill: false, borderColor: 'red', tension: TENSION, pointRadius: POINT_RADIUS },
-        { label: 'Apparent', data: series.apparentTemperature, fill: false, borderColor: 'orange', tension: TENSION, pointRadius: POINT_RADIUS },
-      ],
-    },
-    options: {
-      ...base,
-      scales: {
-        ...base.scales,
-        y: { title: { display: true, text: 'Temperature [F]' }, min, max },
-      },
-    },
-  };
+  return baseOptions(inputs, 'Temperature [F]', [min, max], [
+    { label: 'Temperature', color: 'red', data: series.temperature },
+    { label: 'Apparent', color: 'orange', data: series.apparentTemperature },
+  ]);
 }
 
-export function rainConfig(opts: BaseOptions): LineConfig {
-  const { series } = opts.forecast;
-  const base = baseOptions(opts)!;
-  return {
-    type: 'line',
-    data: {
-      labels: series.startTime,
-      datasets: [
-        { label: 'Humidity', data: series.humidity, fill: false, borderColor: 'brown', tension: TENSION, pointRadius: POINT_RADIUS },
-        { label: 'Precipitation', data: series.precipitation, fill: false, borderColor: 'blue', tension: TENSION, pointRadius: POINT_RADIUS },
-        { label: 'Cloud Cover', data: series.skyCover, fill: false, borderColor: 'grey', tension: TENSION, pointRadius: POINT_RADIUS },
-      ],
-    },
-    options: {
-      ...base,
-      scales: {
-        ...base.scales,
-        y: { title: { display: true, text: '%' }, min: 0, max: 100 },
-      },
-    },
-  };
+export function rainOptions(inputs: ChartInputs) {
+  const { series } = inputs.forecast;
+  return baseOptions(inputs, '%', [0, 100], [
+    { label: 'Humidity', color: 'brown', data: series.humidity },
+    { label: 'Precipitation', color: 'blue', data: series.precipitation },
+    { label: 'Cloud Cover', color: 'grey', data: series.skyCover },
+  ]);
 }
 
-export function windConfig(opts: BaseOptions): LineConfig {
-  const { series } = opts.forecast;
-  const base = baseOptions(opts)!;
-  const windPointerIcon = makeArrowIcon(30);
+export function windOptions(inputs: ChartInputs) {
+  const { series } = inputs.forecast;
   const max = roundToMultiple(Math.max(...(series.windSpeed as number[])), 2, 'up');
-  return {
-    type: 'line',
-    data: {
-      labels: series.startTime,
-      datasets: [
-        {
-          label: 'Speed',
-          data: series.windSpeed,
-          borderColor: 'purple',
-          tension: TENSION,
-          pointStyle: windPointerIcon,
-          pointRotation: series.windDirection.map((d) => (d ?? 0) - 180),
-        },
-      ],
-    },
-    options: {
-      ...base,
-      scales: {
-        ...base.scales,
-        y: { title: { display: true, text: 'Speed [mph]' }, min: 0, max },
-      },
-    },
-  };
+  return baseOptions(
+    inputs,
+    'Speed [mph]',
+    [0, max],
+    [{ label: 'Speed', color: 'purple', data: series.windSpeed }],
+    [windArrowPlugin(inputs.xs, series.windSpeed, series.windDirection)],
+    false, // arrows stand in for the point markers
+  );
 }

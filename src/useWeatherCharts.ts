@@ -1,36 +1,51 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { Chart } from 'chart.js';
-import { computeNightRanges, rainConfig, tempConfig, windConfig, type ChartRange } from './charts';
+import uPlot from 'uplot';
+import {
+  computeNightRanges,
+  rainOptions,
+  tempOptions,
+  toUnixSeconds,
+  windOptions,
+  type ChartInputs,
+} from './charts';
 import type { Forecast } from './types';
 
+let syncCounter = 0;
+
 /**
- * Builds and manages the three synchronized Chart.js instances for a forecast.
- * Returns canvas refs to mount, plus a `setTimeRange` to snap the visible window.
+ * Builds and manages the three synchronized uPlot instances for a forecast.
+ * Returns container refs to mount, plus a `setTimeRange` to snap the visible window.
  */
-export function useWeatherCharts(forecast: Forecast | null, numHours: number, titleSize: number) {
-  const tempRef = useRef<HTMLCanvasElement>(null);
-  const rainRef = useRef<HTMLCanvasElement>(null);
-  const windRef = useRef<HTMLCanvasElement>(null);
-  const chartsRef = useRef<Chart[]>([]);
-  const isUpdatingRef = useRef(false);
+export function useWeatherCharts(
+  forecast: Forecast | null,
+  numHours: number,
+  titleSize: number,
+  fontSize: number,
+) {
+  const tempRef = useRef<HTMLDivElement>(null);
+  const rainRef = useRef<HTMLDivElement>(null);
+  const windRef = useRef<HTMLDivElement>(null);
+  const chartsRef = useRef<uPlot[]>([]);
+  const xsRef = useRef<number[]>([]);
 
   useEffect(() => {
     if (!forecast) return;
-    const canvases = [tempRef.current, rainRef.current, windRef.current];
-    if (canvases.some((c) => c === null)) return;
+    const containers = [tempRef.current, rainRef.current, windRef.current];
+    if (containers.some((c) => c === null)) return;
 
-    // Mirror one chart's x-range onto the others.
-    const syncFrom = (sourceIdx: number, range: ChartRange) => {
-      if (isUpdatingRef.current) return;
-      isUpdatingRef.current = true;
-      chartsRef.current.forEach((chart, i) => {
-        if (i !== sourceIdx) {
-          chart.options.scales!.x!.min = range.min;
-          chart.options.scales!.x!.max = range.max;
-          chart.update('none');
-        }
-      });
-      isUpdatingRef.current = false;
+    const xs = toUnixSeconds(forecast.series.startTime);
+    xsRef.current = xs;
+
+    // Mirror any x-range change onto every chart, guarded against feedback loops.
+    let ready = false;
+    let syncing = false;
+    const applyXScale = (min: number, max: number) => {
+      if (syncing || !ready) return;
+      syncing = true;
+      for (const chart of chartsRef.current) {
+        chart.setScale('x', { min, max });
+      }
+      syncing = false;
     };
 
     const nightRanges = computeNightRanges(
@@ -38,26 +53,58 @@ export function useWeatherCharts(forecast: Forecast | null, numHours: number, ti
       forecast.location.lat,
       forecast.location.lon,
     );
-    const shared = { forecast, numHours, titleSize, nightRanges };
-    const configs = [
-      tempConfig({ ...shared, onRange: (r) => syncFrom(0, r) }),
-      rainConfig({ ...shared, onRange: (r) => syncFrom(1, r) }),
-      windConfig({ ...shared, onRange: (r) => syncFrom(2, r) }),
-    ];
-    const charts = canvases.map((canvas, i) => new Chart(canvas!, configs[i]));
+    const syncKey = `weather-sync-${syncCounter++}`;
+    uPlot.sync(syncKey);
+
+    const shared: ChartInputs = {
+      forecast,
+      xs,
+      numHours,
+      titleSize,
+      fontSize,
+      nightRanges,
+      syncKey,
+      onXScale: applyXScale,
+    };
+
+    const builders = [tempOptions, rainOptions, windOptions];
+    const charts = containers.map((container, i) => {
+      const { opts, data } = builders[i](shared);
+      const rect = container!.getBoundingClientRect();
+      opts.width = Math.max(rect.width, 1);
+      opts.height = Math.max(rect.height, 1);
+      return new uPlot(opts, data, container!);
+    });
     chartsRef.current = charts;
+    ready = true;
+
+    // Default view: first `numHours` hours from the series start.
+    applyXScale(xs[0], xs[Math.min(numHours - 1, xs.length - 1)]);
+
+    // Keep uPlot sized to its (flex/grid) container.
+    const observers = containers.map((container, i) => {
+      const ro = new ResizeObserver(() => {
+        const rect = container!.getBoundingClientRect();
+        charts[i].setSize({ width: Math.max(rect.width, 1), height: Math.max(rect.height, 1) });
+      });
+      ro.observe(container!);
+      return ro;
+    });
 
     return () => {
+      observers.forEach((ro) => ro.disconnect());
       charts.forEach((c) => c.destroy());
       chartsRef.current = [];
     };
-  }, [forecast, numHours, titleSize]);
+  }, [forecast, numHours, titleSize, fontSize]);
 
   const setTimeRange = useCallback((hours: number) => {
+    const xs = xsRef.current;
+    if (!xs.length) return;
+    const min = xs[0];
+    const max = xs[Math.min(hours - 1, xs.length - 1)];
     for (const chart of chartsRef.current) {
-      chart.options.scales!.x!.min = 0;
-      chart.options.scales!.x!.max = hours;
-      chart.update('none');
+      chart.setScale('x', { min, max });
     }
   }, []);
 
