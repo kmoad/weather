@@ -10,7 +10,7 @@ const NUM_HOURS = 24;
 const TIME_OPTIONS = [24, 48, 72];
 
 const mobile = detectMobile();
-Chart.defaults.font.size = mobile ? 28 : 16;
+Chart.defaults.font.size = mobile ? 20 : 13;
 const TITLE_SIZE = mobile ? 40 : 24;
 
 export default function App() {
@@ -18,6 +18,7 @@ export default function App() {
   const [title, setTitle] = useState('Getting location');
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
+  const [range, setRange] = useState(NUM_HOURS);
   const lastLocationTitle = useRef('');
 
   const { tempRef, rainRef, windRef, setTimeRange } = useWeatherCharts(
@@ -32,6 +33,7 @@ export default function App() {
     lastLocationTitle.current = `${fcst.location.city}, ${fcst.location.state}`;
     setTitle(lastLocationTitle.current);
     setError('');
+    setRange(NUM_HOURS);
     setForecast(fcst);
   };
 
@@ -74,35 +76,49 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const selectRange = (hours: number) => {
+    setRange(hours);
+    setTimeRange(hours);
+  };
+
   return (
     <div id="main">
-      <div id="title">
-        <div id="title-text">{title}</div>
-        {error && <div id="status-text">{error}</div>}
-        <input
-          id="location-input"
-          type="text"
-          placeholder="City, State or ZIP"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') submitQuery();
-          }}
-        />
-        <button id="location-go" onClick={submitQuery}>
-          Go
-        </button>
-        <button id="location-gps" onClick={useLocalLocation}>
-          Local
-        </button>
-        {TIME_OPTIONS.map((hours) => (
-          <div key={hours}>
-            <button className="time-select" onClick={() => setTimeRange(hours)}>
-              {hours}hr
-            </button>
+      <header id="topbar">
+        <div className="topbar-row">
+          <h1 id="title-text">{title}</h1>
+          <div className="segmented" role="group" aria-label="Forecast range">
+            {TIME_OPTIONS.map((hours) => (
+              <button
+                key={hours}
+                className={hours === range ? 'active' : ''}
+                aria-pressed={hours === range}
+                onClick={() => selectRange(hours)}
+              >
+                {hours}h
+              </button>
+            ))}
           </div>
-        ))}
-      </div>
+        </div>
+        <div className="search-row">
+          <input
+            id="location-input"
+            type="text"
+            placeholder="City, State or ZIP"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') submitQuery();
+            }}
+          />
+          <button className="btn btn-go" onClick={submitQuery}>
+            Go
+          </button>
+          <button className="btn btn-gps" onClick={useLocalLocation}>
+            Local
+          </button>
+        </div>
+        {error && <div id="status-text">{error}</div>}
+      </header>
       <div id="charts">
         <div className="chart-container">
           <canvas ref={tempRef} />

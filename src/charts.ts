@@ -30,7 +30,7 @@ const NIGHT_SHADING_PLUGIN = {
       scales: { x },
     } = chart;
     ctx.save();
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+    ctx.fillStyle = 'rgba(37, 61, 99, 0.07)';
     const halfStep = (x.getPixelForValue(1) - x.getPixelForValue(0)) / 2;
     for (const [s, e] of ranges) {
       const xStart = x.getPixelForValue(s) - halfStep;
@@ -46,6 +46,28 @@ const NIGHT_SHADING_PLUGIN = {
 };
 
 Chart.register(chartjsPluginAnnotation, chartjsPluginZoom, NIGHT_SHADING_PLUGIN, ...registerables);
+
+// Shared visual language for all three charts.
+const INK = '#0b1220';
+const MUTED = '#5b6b7f';
+const GRID = '#e7edf4';
+
+const SERIES = {
+  temperature: '#e11d48', // rose
+  apparent: '#f59e0b', // amber
+  humidity: '#0d9488', // teal
+  precipitation: '#2563eb', // blue
+  cloud: '#94a3b8', // slate
+  wind: '#7c3aed', // violet
+};
+
+Chart.defaults.color = MUTED;
+Chart.defaults.borderColor = GRID;
+Chart.defaults.font.family = "system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+Chart.defaults.plugins.legend.labels.color = INK;
+Chart.defaults.plugins.legend.labels.usePointStyle = true;
+Chart.defaults.plugins.legend.labels.boxWidth = 8;
+Chart.defaults.plugins.legend.labels.boxHeight = 8;
 
 export function detectMobile(): boolean {
   // 1) Client Hints
@@ -194,12 +216,29 @@ function baseOptions({ forecast, numHours, nightRanges, onRange }: BaseOptions):
         // Faithful to the original: category labels are Date objects.
         min: startTime[0] as unknown as number,
         max: startTime[numHours - 1] as unknown as number,
+        grid: { color: GRID },
+        border: { color: GRID },
         ticks: {
-          font: { family: 'monospace' },
+          color: MUTED,
+          font: { family: 'ui-monospace, SFMono-Regular, Menlo, monospace' },
+          maxRotation: 0,
+          autoSkipPadding: 12,
           callback: makeTick,
         },
       },
     },
+  };
+}
+
+/** Shared y-axis styling so all three charts match. */
+function yScale(text: string, min: number, max: number) {
+  return {
+    title: { display: true, text, color: MUTED, font: { weight: 600 } },
+    min,
+    max,
+    grid: { color: GRID },
+    border: { color: GRID },
+    ticks: { color: MUTED },
   };
 }
 
@@ -221,15 +260,15 @@ export function tempConfig(opts: BaseOptions): LineConfig {
     data: {
       labels: series.startTime,
       datasets: [
-        { label: 'Temperature', data: series.temperature, fill: false, borderColor: 'red', tension: TENSION, pointRadius: POINT_RADIUS },
-        { label: 'Apparent', data: series.apparentTemperature, fill: false, borderColor: 'orange', tension: TENSION, pointRadius: POINT_RADIUS },
+        { label: 'Temperature', data: series.temperature, fill: false, borderColor: SERIES.temperature, backgroundColor: SERIES.temperature, tension: TENSION, pointRadius: POINT_RADIUS },
+        { label: 'Apparent', data: series.apparentTemperature, fill: false, borderColor: SERIES.apparent, backgroundColor: SERIES.apparent, tension: TENSION, pointRadius: POINT_RADIUS },
       ],
     },
     options: {
       ...base,
       scales: {
         ...base.scales,
-        y: { title: { display: true, text: 'Temperature [F]' }, min, max },
+        y: yScale('Temperature [F]', min, max),
       },
     },
   };
@@ -243,16 +282,16 @@ export function rainConfig(opts: BaseOptions): LineConfig {
     data: {
       labels: series.startTime,
       datasets: [
-        { label: 'Humidity', data: series.humidity, fill: false, borderColor: 'brown', tension: TENSION, pointRadius: POINT_RADIUS },
-        { label: 'Precipitation', data: series.precipitation, fill: false, borderColor: 'blue', tension: TENSION, pointRadius: POINT_RADIUS },
-        { label: 'Cloud Cover', data: series.skyCover, fill: false, borderColor: 'grey', tension: TENSION, pointRadius: POINT_RADIUS },
+        { label: 'Humidity', data: series.humidity, fill: false, borderColor: SERIES.humidity, backgroundColor: SERIES.humidity, tension: TENSION, pointRadius: POINT_RADIUS },
+        { label: 'Precipitation', data: series.precipitation, fill: false, borderColor: SERIES.precipitation, backgroundColor: SERIES.precipitation, tension: TENSION, pointRadius: POINT_RADIUS },
+        { label: 'Cloud Cover', data: series.skyCover, fill: false, borderColor: SERIES.cloud, backgroundColor: SERIES.cloud, tension: TENSION, pointRadius: POINT_RADIUS },
       ],
     },
     options: {
       ...base,
       scales: {
         ...base.scales,
-        y: { title: { display: true, text: '%' }, min: 0, max: 100 },
+        y: yScale('%', 0, 100),
       },
     },
   };
@@ -261,7 +300,7 @@ export function rainConfig(opts: BaseOptions): LineConfig {
 export function windConfig(opts: BaseOptions): LineConfig {
   const { series } = opts.forecast;
   const base = baseOptions(opts)!;
-  const windPointerIcon = makeArrowIcon(30);
+  const windPointerIcon = makeArrowIcon(30, SERIES.wind);
   const max = roundToMultiple(Math.max(...(series.windSpeed as number[])), 2, 'up');
   return {
     type: 'line',
@@ -271,7 +310,8 @@ export function windConfig(opts: BaseOptions): LineConfig {
         {
           label: 'Speed',
           data: series.windSpeed,
-          borderColor: 'purple',
+          borderColor: SERIES.wind,
+          backgroundColor: SERIES.wind,
           tension: TENSION,
           pointStyle: windPointerIcon,
           pointRotation: series.windDirection.map((d) => (d ?? 0) - 180),
@@ -282,7 +322,7 @@ export function windConfig(opts: BaseOptions): LineConfig {
       ...base,
       scales: {
         ...base.scales,
-        y: { title: { display: true, text: 'Speed [mph]' }, min: 0, max },
+        y: yScale('Speed [mph]', 0, max),
       },
     },
   };

@@ -1,11 +1,32 @@
+:root {
+  /* Daybreak palette — a clean meteorological instrument panel. */
+  --bg: #eef2f7;
+  --surface: #ffffff;
+  --ink: #0b1220;
+  --muted: #5b6b7f;
+  --line: #dbe3ec;
+  --accent: #2563eb;
+  --accent-ink: #ffffff;
+  --danger: #d1344a;
+
+  color: var(--ink);
+  background: var(--bg);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-synthesis: none;
+  -webkit-text-size-adjust: 100%;
+}
+
 html,
 body {
   margin: 0;
   height: 100%;
   overflow: hidden;
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
 }
 
 #root {
   height: 100%;
+}
+
+* {
+  box-sizing: border-box;
 }
