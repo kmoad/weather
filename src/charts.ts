@@ -258,7 +258,7 @@ interface BaseOptions {
 }
 
 const TENSION = 0.4;
-const POINT_RADIUS = 2.5;
+const POINT_RADIUS = 0;
 
 type LineConfig = ChartConfiguration<'line', (number | null)[], Date>;
 
