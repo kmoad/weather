@@ -69,6 +69,7 @@ export async function getData(lat: number, lon: number): Promise<Forecast> {
     humidity: expandGridSeries(gridProps.relativeHumidity.values).values,
     precipitation: expandGridSeries(gridProps.probabilityOfPrecipitation.values).values,
     skyCover: expandGridSeries(gridProps.skyCover.values).values,
+    thunder: expandGridSeries(gridProps.probabilityOfThunder.values).values,
     windSpeed: expandGridSeries(gridProps.windSpeed.values).values.map(kmToMile),
     windGust: expandGridSeries(gridProps.windGust.values).values.map(kmToMile),
     windDirection: expandGridSeries(gridProps.windDirection.values).values,

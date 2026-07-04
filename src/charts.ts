@@ -94,6 +94,7 @@ const SERIES = {
   humidity: '#0d9488', // teal
   precipitation: '#2563eb', // blue
   cloud: '#94a3b8', // slate
+  thunder: '#ce8404', //dark orange
   wind: '#7c3aed', // violet
 };
 
@@ -117,6 +118,7 @@ export const CHART_META: Record<'temp' | 'rain' | 'wind', ChartMeta> = {
       { label: 'Humidity', color: SERIES.humidity },
       { label: 'Precip', color: SERIES.precipitation },
       { label: 'Clouds', color: SERIES.cloud },
+      { label: 'Thunder', color: SERIES.thunder},
     ],
   },
   wind: {
@@ -364,6 +366,7 @@ export function rainConfig(opts: BaseOptions): LineConfig {
         { label: 'Humidity', data: series.humidity, fill: false, borderColor: SERIES.humidity, backgroundColor: SERIES.humidity, tension: TENSION, pointRadius: POINT_RADIUS },
         { label: 'Precipitation', data: series.precipitation, fill: false, borderColor: SERIES.precipitation, backgroundColor: SERIES.precipitation, tension: TENSION, pointRadius: POINT_RADIUS },
         { label: 'Cloud Cover', data: series.skyCover, fill: false, borderColor: SERIES.cloud, backgroundColor: SERIES.cloud, tension: TENSION, pointRadius: POINT_RADIUS },
+        { label: 'Thunder', data: series.thunder, fill: false, borderColor: SERIES.thunder, backgroundColor: SERIES.thunder, tension: TENSION, pointRadius: POINT_RADIUS },
       ],
     },
     options: {

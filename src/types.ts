@@ -16,6 +16,7 @@ export interface ForecastSeries {
   humidity: (number | null)[];
   precipitation: (number | null)[];
   skyCover: (number | null)[];
+  thunder: (number | null)[];
   windSpeed: (number | null)[];
   windGust: (number | null)[];
   windDirection: (number | null)[];
